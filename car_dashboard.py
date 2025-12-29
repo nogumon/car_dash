@@ -5,8 +5,8 @@ from kivy.config import Config
 DEV_MODE = True  # 開発中は True / 実機は False
 
 if DEV_MODE:
-    Config.set('graphics', 'width', '1024')
-    Config.set('graphics', 'height', '600')
+    Config.set('graphics', 'width', '800')
+    Config.set('graphics', 'height', '480')
     Config.set('graphics', 'fullscreen', '0')
 else:
     Config.set('graphics', 'fullscreen', 'auto')
