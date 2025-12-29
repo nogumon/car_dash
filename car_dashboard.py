@@ -247,18 +247,20 @@ class CarDashboard(BoxLayout):
         # ===== ここまで =====
 
     def _layout_title(self, *args):
-        # ラベルの実サイズ（texture）を確定
+        # texture確定
         self.now_title_label.texture_update()
         lw, lh = self.now_title_label.texture_size
-        self.now_title_label.size = (lw, self.title_clip.height)
 
-        # y は clip に合わせる
+        # ラベルのサイズと縦位置だけ決める（xは決めない！）
+        self.now_title_label.size = (lw, self.title_clip.height)
         self.now_title_label.y = self.title_clip.y
-    
-        # 短い文字は中央寄せ、長い文字は左から（スクロール開始位置）
+
+        # ここ重要：長い/短いで「初期位置」だけ決める
         if lw <= self.title_clip.width:
+            # 短い → 中央に固定
             self.now_title_label.x = self.title_clip.x + (self.title_clip.width - lw) / 2
         else:
+            # 長い → 左端スタートに固定（スクロールtickが動かす）
             self.now_title_label.x = self.title_clip.x
 
     def _update_music_status(self, _dt):
@@ -322,39 +324,50 @@ class CarDashboard(BoxLayout):
     def _start_marquee_if_needed(self):
         self._stop_marquee()
 
-        # レイアウト未確定なら次フレームへ
-        if not self.title_clip or self.title_clip.width <= 0:
-            from kivy.clock import Clock
-            Clock.schedule_once(lambda dt: self._start_marquee_if_needed(), 0)
-            return
-
-        # テクスチャ更新して「実幅」を取る
         self.now_title_label.texture_update()
-        text_w = self.now_title_label.texture_size[0]
-        clip_w = self.title_clip.width
+        lw, _ = self.now_title_label.texture_size
 
-        # 短いなら中央に置いて終わり
-        if text_w <= clip_w:
-            self.now_title_label.x = self.title_clip.x + (clip_w - text_w) / 2
-            return
+        if lw <= self.title_clip.width:
+            return  # 短いならスクロール不要
 
-        # 長いなら右端から流す
-        self.now_title_label.x = self.title_clip.x + clip_w
+        self._marquee_offset = 0.0
+        self._marquee_phase = "move"
         self._marquee_timer = 0.0
 
-        def _tick(dt):
-            self.now_title_label.x -= self._marquee_speed * dt
+        self._marquee_ev = Clock.schedule_interval(self._tick_marquee, 1/60)
 
-            # 末尾が左へ抜けたら待って先頭へ戻す
-            if self.now_title_label.x + text_w < self.title_clip.x:
-                self._marquee_timer += dt
-                if self._marquee_timer >= self._marquee_wait:
-                    self._marquee_timer = 0.0
-                    self.now_title_label.x = self.title_clip.x + clip_w
+    def _tick_marquee(self, dt):
+        # 毎フレーム texture を更新する必要はないけど、安全に保険で一応
+        self.now_title_label.texture_update()
+        lw, _ = self.now_title_label.texture_size
 
-        from kivy.clock import Clock
-        self._marquee_ev = Clock.schedule_interval(_tick, 1/60)
+        max_offset = lw - self.title_clip.width
+        if max_offset <= 0:
+            return
 
+        speed = getattr(self, "_marquee_speed", 2.0)      # 1フレームのpx（好みで）
+        wait  = getattr(self, "_marquee_wait", 1.0)       # 端で待つ秒数
+
+        if self._marquee_phase == "move":
+            self._marquee_offset += speed
+            if self._marquee_offset >= max_offset:
+                self._marquee_offset = max_offset
+                self._marquee_phase = "wait_end"
+                self._marquee_timer = 0.0
+
+        elif self._marquee_phase == "wait_end":
+            self._marquee_timer += dt
+            if self._marquee_timer >= wait:
+                self._marquee_phase = "reset"
+                self._marquee_timer = 0.0
+
+        elif self._marquee_phase == "reset":
+            # 左へ戻す（パッと戻す）
+            self._marquee_offset = 0.0
+            self._marquee_phase = "move"
+
+        # ★ここが重要：xはスクロール関数だけが決める
+        self.now_title_label.x = self.title_clip.x - self._marquee_offset
 
     # ===== Music：増殖防止 =====
     def open_music(self, *_):
