@@ -152,19 +152,20 @@ class CarDashboard(BoxLayout):
             size_hint=(None, None),
         )
 
-        def _sync_title_size(*_):
-            self.now_title_label.texture_update()
-            w, h = self.now_title_label.texture_size
-            self.now_title_label.size = (w, self.title_clip.height)
-            self.now_title_label.y = self.title_clip.y
+        #def _sync_title_size(*_):
+            #self.now_title_label.texture_update()
+            #w, h = self.now_title_label.texture_size
+            #self.now_title_label.size = (w, self.title_clip.height)
+            #self.now_title_label.y = self.title_clip.y
 
-        self.now_title_label.bind(text=_sync_title_size)
-        self.title_clip.bind(size=_sync_title_size, pos=_sync_title_size)
+        #self.now_title_label.bind(text=_sync_title_size)
+        #self.title_clip.bind(size=_sync_title_size, pos=_sync_title_size)
 
         self.title_clip.add_widget(self.now_title_label)
 
-        Clock.schedule_once(self._fix_title_clip, 0)
-        Clock.schedule_once(self._fix_title_clip, 0.1)
+        self.title_clip.bind(size=self._layout_title, pos=self._layout_title)
+        self.now_title_label.bind(text=self._layout_title)
+
 
         self.city_label = Label(
             text="City: --",
@@ -245,6 +246,21 @@ class CarDashboard(BoxLayout):
 
         # ===== ここまで =====
 
+    def _layout_title(self, *args):
+        # ラベルの実サイズ（texture）を確定
+        self.now_title_label.texture_update()
+        lw, lh = self.now_title_label.texture_size
+        self.now_title_label.size = (lw, self.title_clip.height)
+
+        # y は clip に合わせる
+        self.now_title_label.y = self.title_clip.y
+    
+        # 短い文字は中央寄せ、長い文字は左から（スクロール開始位置）
+        if lw <= self.title_clip.width:
+            self.now_title_label.x = self.title_clip.x + (self.title_clip.width - lw) / 2
+        else:
+            self.now_title_label.x = self.title_clip.x
+
     def _update_music_status(self, _dt):
         if self.is_music_ready():
             self.now_title_label.text = "♪ Music: READY"
@@ -284,6 +300,7 @@ class CarDashboard(BoxLayout):
 
         if title:
             self.now_title_label.text = f"{prefix}{title}"
+            self._layout_title()
             Clock.schedule_once(lambda dt: self._start_marquee_if_needed(), 0)
         else:
             self.now_title_label.text = "♪ 何も再生していません"
