@@ -389,8 +389,9 @@ class CarDashboard(BoxLayout):
 
         # 左へ移動（dtで一定速度）
         dx = speed * dt
-        a.x -= dx
-        b.x -= dx
+        a.x = a.x - dx
+        b.x = b.x - dx
+
 
         # 右側にいる方を基準に、抜けた方を右に付け替える
         # （これで途切れずにループする）
