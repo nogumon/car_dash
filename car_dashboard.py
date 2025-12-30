@@ -317,57 +317,89 @@ class CarDashboard(BoxLayout):
 
     def _stop_marquee(self):
         ev = getattr(self, "_marquee_ev", None)
-        if ev:
+        if ev is not None:
             ev.cancel()
-        self._marquee_ev = None
+            self._marquee_ev = None
+
+        # 2枚目があれば隠す
+        if hasattr(self, "now_title_label2"):
+            self.now_title_label2.opacity = 0
 
     def _start_marquee_if_needed(self):
+        # まず止める
         self._stop_marquee()
 
+        # 2枚目Labelを用意（まだ無ければ作る）
+        if not hasattr(self, "now_title_label2"):
+            self.now_title_label2 = Label(
+                text=self.now_title_label.text,
+                font_name=self.now_title_label.font_name,
+                font_size=self.now_title_label.font_size,
+                bold=getattr(self.now_title_label, "bold", False),
+                italic=getattr(self.now_title_label, "italic", False),
+                color=self.now_title_label.color,
+                halign="left",
+                valign="middle",
+                size_hint=(None, None),
+            )
+            # clipの中に入れる（重要）
+            self.title_clip.add_widget(self.now_title_label2)
+
+        # 文字幅をここで確定（tick中にtexture_updateしない）
         self.now_title_label.texture_update()
-        lw, _ = self.now_title_label.texture_size
+        lw, lh = self.now_title_label.texture_size
 
+        # 高さはclipに合わせる（縦中央系のズレ防止）
+        self.now_title_label.size = (lw, self.title_clip.height)
+        self.now_title_label.y = self.title_clip.y
+
+        self.now_title_label2.text = self.now_title_label.text
+        self.now_title_label2.texture_update()
+        lw2, lh2 = self.now_title_label2.texture_size
+        self.now_title_label2.size = (lw2, self.title_clip.height)
+        self.now_title_label2.y = self.title_clip.y
+
+        # 短ければスクロールしない（中央寄せ）
         if lw <= self.title_clip.width:
-            return  # 短いならスクロール不要
+            self.now_title_label.x = self.title_clip.x + (self.title_clip.width - lw) / 2
+            self.now_title_label2.opacity = 0
+            return
 
-        self._marquee_offset = 0.0
-        self._marquee_phase = "move"
-        self._marquee_timer = 0.0
+        # パラメータ
+        self._marquee_gap = 0      # ←シームレスにしたいなら0（隙間を入れたいなら 40〜100）
+        self._marquee_speed = 40.0 # px/秒（遅い:30 / 普通:40〜60）
 
+        # 2枚を並べて開始（右→左へ）
+        self.now_title_label.opacity = 1
+        self.now_title_label2.opacity = 1
+
+        self.now_title_label.x = self.title_clip.x
+        self.now_title_label2.x = self.now_title_label.right + self._marquee_gap
+
+        # tick開始
         self._marquee_ev = Clock.schedule_interval(self._tick_marquee, 1/60)
 
     def _tick_marquee(self, dt):
-        # 毎フレーム texture を更新する必要はないけど、安全に保険で一応
-        self.now_title_label.texture_update()
-        lw, _ = self.now_title_label.texture_size
+        speed = getattr(self, "_marquee_speed", 40.0)
+        gap = getattr(self, "_marquee_gap", 0)
 
-        max_offset = lw - self.title_clip.width
-        if max_offset <= 0:
-            return
+        a = self.now_title_label
+        b = self.now_title_label2
+        clip_left = self.title_clip.x
 
-        speed = getattr(self, "_marquee_speed", 2.0)      # 1フレームのpx（好みで）
-        wait  = getattr(self, "_marquee_wait", 1.0)       # 端で待つ秒数
+        # 左へ移動（dtで一定速度）
+        dx = speed * dt
+        a.x -= dx
+        b.x -= dx
 
-        if self._marquee_phase == "move":
-            self._marquee_offset += speed
-            if self._marquee_offset >= max_offset:
-                self._marquee_offset = max_offset
-                self._marquee_phase = "wait_end"
-                self._marquee_timer = 0.0
+        # 右側にいる方を基準に、抜けた方を右に付け替える
+        # （これで途切れずにループする）
+        if a.right < clip_left:
+            a.x = b.right + gap
+        if b.right < clip_left:
+            b.x = a.right + gap
 
-        elif self._marquee_phase == "wait_end":
-            self._marquee_timer += dt
-            if self._marquee_timer >= wait:
-                self._marquee_phase = "reset"
-                self._marquee_timer = 0.0
 
-        elif self._marquee_phase == "reset":
-            # 左へ戻す（パッと戻す）
-            self._marquee_offset = 0.0
-            self._marquee_phase = "move"
-
-        # ★ここが重要：xはスクロール関数だけが決める
-        self.now_title_label.x = self.title_clip.x - self._marquee_offset
 
     # ===== Music：増殖防止 =====
     def open_music(self, *_):
