@@ -10,4 +10,4 @@ fi
 source venv/bin/activate
 pip install -r requirements.txt
 
-python car_dashboard.py
+python car_dashboard_with_system.py
