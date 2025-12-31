@@ -30,6 +30,9 @@ from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.stencilview import StencilView
+from kivy.uix.widget import Widget
+from kivy.uix.anchorlayout import AnchorLayout
+
 
 Window.minimum_width = 0
 Window.minimum_height = 0
@@ -136,7 +139,7 @@ class CarDashboard(BoxLayout):
         # ===== UI =====
         root = BoxLayout(orientation="vertical", padding=12, spacing=8)
 
-        info = BoxLayout(orientation="vertical", spacing=2, size_hint_y=1)
+        info = BoxLayout(orientation="vertical", spacing=6, size_hint=(1, None))
 
         self.time_label = Label(
             text="--:--",
@@ -188,15 +191,30 @@ class CarDashboard(BoxLayout):
             height=44,
         )
 
+        # ===== ここで info に詰める（ラベル生成後） =====
+       
         info.add_widget(self.time_label)
         info.add_widget(self.date_label)
         info.add_widget(self.title_clip)
         info.add_widget(self.city_label)
         info.add_widget(self.temp_label)
-        root.add_widget(info)
+
+        # info の高さを中身から計算（中央寄せのため）
+        info.height = (
+            self.time_label.height
+            + self.date_label.height
+            + self.title_clip.height
+            + self.city_label.height
+            + self.temp_label.height
+            + info.spacing * 4
+        )
+        
+        center_box = AnchorLayout(anchor_x="center", anchor_y="center", size_hint_y=1)
+        center_box.add_widget(info)
+        root.add_widget(center_box)
 
         # --- buttons ---
-        btn_area = BoxLayout(orientation="vertical", spacing=8, size_hint_y=1, height=140)
+        btn_area = BoxLayout(orientation="vertical", spacing=8, size_hint_y=None, height=140)
 
         row1 = BoxLayout(spacing=10, size_hint_y=None, height=56)
         music_btn = Button(text="Music", font_name=FONT_NAME, font_size=26)
