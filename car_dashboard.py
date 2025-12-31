@@ -366,39 +366,49 @@ class CarDashboard(BoxLayout):
             return
 
         # パラメータ
-        self._marquee_gap = 0      # ←シームレスにしたいなら0（隙間を入れたいなら 40〜100）
-        self._marquee_speed = 40.0 # px/秒（遅い:30 / 普通:40〜60）
+        self._marquee_speed = 40.0       # px/秒
+        self._marquee_blank_sec = 0.6    # 末尾が消えてから次が出るまでの無表示時間
+        self._marquee_pause_until = 0    # 内部用
 
-        # 2枚を並べて開始（右→左へ）
+        # 2枚目は使わない（電車内方式）
+        if hasattr(self, "now_title_label2"):
+            self.now_title_label2.opacity = 0
+
+        # まず左端からスタート（「末尾が左へ流れ切る」をやるため）
         self.now_title_label.opacity = 1
-        self.now_title_label2.opacity = 1
-
         self.now_title_label.x = self.title_clip.x
-        self.now_title_label2.x = self.now_title_label.right + self._marquee_gap
 
         # tick開始
         self._marquee_ev = Clock.schedule_interval(self._tick_marquee, 1/60)
 
+
     def _tick_marquee(self, dt):
+        import time
+
         speed = getattr(self, "_marquee_speed", 40.0)
-        gap = getattr(self, "_marquee_gap", 0)
+        blank = getattr(self, "_marquee_blank_sec", 0.6)
 
         a = self.now_title_label
-        b = self.now_title_label2
         clip_left = self.title_clip.x
+        clip_right = self.title_clip.x + self.title_clip.width
 
-        # 左へ移動（dtで一定速度）
+        # 無表示(待ち)中なら何もしない
+        pause_until = getattr(self, "_marquee_pause_until", 0)
+        if time.time() < pause_until:
+            return
+
+        # 左へ移動
         dx = speed * dt
         a.x = a.x - dx
-        b.x = b.x - dx
 
-
-        # 右側にいる方を基準に、抜けた方を右に付け替える
-        # （これで途切れずにループする）
+        # ★末尾が完全に左へ消えたら（右端がclip左端より左）
         if a.right < clip_left:
-            a.x = b.right + gap
-        if b.right < clip_left:
-            b.x = a.right + gap
+            # 右端の外に戻す（ここから先頭が出てくる）
+            a.x = clip_right
+
+            # ちょっと待ってから出す（電車内の「間」）
+            self._marquee_pause_until = time.time() + blank
+
 
 
 
