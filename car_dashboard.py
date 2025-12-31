@@ -260,8 +260,9 @@ class CarDashboard(BoxLayout):
             # 短い → 中央に固定
             self.now_title_label.x = self.title_clip.x + (self.title_clip.width - lw) / 2
         else:
-            # 長い → 左端スタートに固定（スクロールtickが動かす）
-            self.now_title_label.x = self.title_clip.x
+            # 長い → スクロール中はxを触らない（tickに任せる）
+            if not getattr(self, "_is_marquee_running", False):
+                self.now_title_label.x = self.title_clip.x
 
     def _update_music_status(self, _dt):
         if self.is_music_ready():
@@ -325,6 +326,8 @@ class CarDashboard(BoxLayout):
         if hasattr(self, "now_title_label2"):
             self.now_title_label2.opacity = 0
 
+        self._is_marquee_running = False    
+
     def _start_marquee_if_needed(self):
         # まず止める
         self._stop_marquee()
@@ -377,6 +380,8 @@ class CarDashboard(BoxLayout):
         # まず左端からスタート（「末尾が左へ流れ切る」をやるため）
         self.now_title_label.opacity = 1
         self.now_title_label.x = self.title_clip.x
+
+        self._is_marquee_running = True
 
         # tick開始
         self._marquee_ev = Clock.schedule_interval(self._tick_marquee, 1/60)
