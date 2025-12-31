@@ -37,7 +37,7 @@ Window.minimum_height = 0
 # =====================
 # Weather (optional)
 # =====================
-OPENWEATHER_API_KEY = ""  # 必要なら入れる
+OPENWEATHER_API_KEY = "ee5aa98cd49e728da0f0bad2e059e8fb"  # 必要なら入れる
 CITY_QUERY = "Tokyo,jp"
 LANG = "ja"
 UNITS = "metric"
