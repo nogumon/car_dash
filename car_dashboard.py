@@ -136,13 +136,10 @@ class CarDashboard(BoxLayout):
         )
 
         # --- 曲名表示（スクロール対応） ---
-
         self.title_clip = StencilView(
             size_hint=(1, None),
             height=48,
         )
-        #self.title_clip.width = Window.width * 0.8
-        #self.title_clip.pos_hint = {"center_x": 0.5}
 
         self.now_title_label = Label(
             text="♪ プレイヤー未検出 (Music再生で検出)",
@@ -152,20 +149,15 @@ class CarDashboard(BoxLayout):
             size_hint=(None, None),
         )
 
-        #def _sync_title_size(*_):
-            #self.now_title_label.texture_update()
-            #w, h = self.now_title_label.texture_size
-            #self.now_title_label.size = (w, self.title_clip.height)
-            #self.now_title_label.y = self.title_clip.y
-
-        #self.now_title_label.bind(text=_sync_title_size)
-        #self.title_clip.bind(size=_sync_title_size, pos=_sync_title_size)
-
         self.title_clip.add_widget(self.now_title_label)
 
-        self.title_clip.bind(size=self._layout_title, pos=self._layout_title)
-        self.now_title_label.bind(text=self._layout_title)
+        # レイアウト更新（size/pos）でスクロール位置が飛ばないようにする
+        self._clip_last_x = None
+        self._clip_last_w = None
+        self.title_clip.bind(size=self._on_title_clip_layout, pos=self._on_title_clip_layout)
 
+        # textが変わった時はサイズ確定だけ（xはスクロール中なら触らない）
+        self.now_title_label.bind(text=self._layout_title)
 
         self.city_label = Label(
             text="City: --",
@@ -220,76 +212,67 @@ class CarDashboard(BoxLayout):
         self.add_widget(root)
         self.chrome_launched = False
 
+        # ===== marquee state =====
         self._marquee_ev = None
-        self._marquee_phase = "stop"
-        self._marquee_timer = 0.0
+        self._is_marquee_running = False
+        self._marquee_speed = 40.0          # px/秒
+        self._marquee_blank_sec = 0.6       # 無表示の間（秒）
+        self._marquee_pause_until = 0.0
 
-        Clock.schedule_once(lambda dt: self._start_marquee_if_needed(), 0)
-
-        # ===== marquee init =====
-        self._marquee_ev = None
-        self._marquee_speed = 2.0      # 1フレームで動くpx（好みで調整）
-        self._marquee_wait = 1.0       # 端まで行った後に待つ秒数
-        self._marquee_timer = 0.0
-
-        #Clock.schedule_interval(self._update_music_status, 1.0)
-        #self._update_music_status(0)
+        # 「曲名更新/状態更新」があった時だけ表示を変える
+        self._last_track_key = None  # (status, title) を覚える
 
         self.player_name = ""
 
         Clock.schedule_interval(self.update_music_info, 1.0)
         self.update_music_info(0)
 
-        # --- marquee 初期化（起動直後の左寄り対策） ---
-        self._marquee_ev = None
-        self._marquee_timer = 0.0
-
         # ===== ここまで =====
+
+    # --- clip が動いた時、スクロール位置を維持する ---
+    def _on_title_clip_layout(self, *_):
+        # 初回だけ記録して抜ける
+        if self._clip_last_x is None:
+            self._clip_last_x = self.title_clip.x
+            self._clip_last_w = self.title_clip.width
+            # 初回は普通にレイアウト確定
+            self._layout_title()
+            return
+
+        dx = self.title_clip.x - self._clip_last_x
+        # clipが動いた分だけ、ラベルも平行移動（＝見た目の位置を維持）
+        if abs(dx) > 0.0001:
+            self.now_title_label.x += dx
+            if hasattr(self, "now_title_label2"):
+                self.now_title_label2.x += dx
+
+        self._clip_last_x = self.title_clip.x
+        self._clip_last_w = self.title_clip.width
+
+        # サイズ確定（xは基本触らない）
+        self._layout_title()
 
     def _layout_title(self, *args):
         # texture確定
         self.now_title_label.texture_update()
         lw, lh = self.now_title_label.texture_size
 
-        # ラベルのサイズと縦位置だけ決める（xは決めない！）
+        # ラベルのサイズと縦位置だけ決める（xはスクロール中なら触らない）
         self.now_title_label.size = (lw, self.title_clip.height)
         self.now_title_label.y = self.title_clip.y
 
-        # ここ重要：長い/短いで「初期位置」だけ決める
+        # 短い → 中央固定（スクロールしない）
         if lw <= self.title_clip.width:
-            # 短い → 中央に固定
             self.now_title_label.x = self.title_clip.x + (self.title_clip.width - lw) / 2
-        else:
-            # 長い → スクロール中はxを触らない（tickに任せる）
-            if not getattr(self, "_is_marquee_running", False):
-                self.now_title_label.x = self.title_clip.x
-
-    def _update_music_status(self, _dt):
-        if self.is_music_ready():
-            self.now_title_label.text = "♪ Music: READY"
-        else:
-            self.now_title_label.text = "♪ Music: NOT RUNNING"
-
-
-    def update_clock(self, _dt):
-        now = datetime.now()
-        self.time_label.text = now.strftime("%H:%M")
-        self.date_label.text = now.strftime("%Y/%m/%d (%a)")
-
-    def update_weather(self, _dt):
-        city, temp = get_weather()
-        if city:
-            self.city_label.text = f"City: {city}"
-        if temp is not None:
-            self.temp_label.text = f"Temp: {temp:.1f} °C"
 
     def refresh_player(self):
         self.player_name = pick_chromium_player()
 
     def update_music_info(self, _dt):
+        # プレイヤー未検出中はスクロールさせない
         if not self.player_name:
             self.refresh_player()
-            self.now_title_label.text = "♪ プレイヤー未検出（Music再生で検出）"
+            self._set_title_text("♪ プレイヤー未検出（Music再生で検出）", allow_marquee=False)
             return
 
         title, artist, status = get_metadata(self.player_name)
@@ -302,90 +285,69 @@ class CarDashboard(BoxLayout):
             prefix = "♪"
 
         if title:
-            self.now_title_label.text = f"{prefix}{title}"
-            self._layout_title()
-            Clock.schedule_once(lambda dt: self._start_marquee_if_needed(), 0)
+            display = f"{prefix}{title}"
+            allow = (status.lower() == "playing")  # ★playingの時だけスクロール
+            self._set_title_text(display, allow_marquee=allow)
         else:
-            self.now_title_label.text = "♪ 何も再生していません"
+            # 何も再生してない → スクロール停止
+            self._set_title_text("♪ 何も再生していません", allow_marquee=False)
+
+    # --- 「同じ曲名なら触らない」：これで毎秒リセットが消える ---
+    def _set_title_text(self, text: str, allow_marquee: bool):
+        # ここでは status/title の変化のみを検出したいのでキー化
+        key = (allow_marquee, text)
+
+        if key == self._last_track_key:
+            # 同じ表示なら何もしない（＝スクロール位置が維持される）
+            return
+
+        self._last_track_key = key
+        self.now_title_label.text = text
+
+        # サイズ確定（短いなら中央へ）
+        self._layout_title()
+
+        if allow_marquee:
+            # 曲が変わった時だけ marquee を始動（最初からやり直しでOK）
+            Clock.schedule_once(lambda dt: self._start_marquee_if_needed(force_restart=True), 0)
+        else:
             self._stop_marquee()
-
-    def _fix_title_clip(self, *_):
-        # テクスチャ（文字サイズ）を確定させる
-        self.now_title_label.texture_update()
-
-        # その状態でスクロール判定をやり直す
-        self._start_marquee_if_needed()
 
     def _stop_marquee(self):
         ev = getattr(self, "_marquee_ev", None)
         if ev is not None:
             ev.cancel()
             self._marquee_ev = None
+        self._is_marquee_running = False
 
-        # 2枚目があれば隠す
+        # 2枚目があれば隠す（今は使わないが一応）
         if hasattr(self, "now_title_label2"):
             self.now_title_label2.opacity = 0
 
-        self._is_marquee_running = False    
-
-    def _start_marquee_if_needed(self):
-        # まず止める
-        self._stop_marquee()
-
-        # 2枚目Labelを用意（まだ無ければ作る）
-        if not hasattr(self, "now_title_label2"):
-            self.now_title_label2 = Label(
-                text=self.now_title_label.text,
-                font_name=self.now_title_label.font_name,
-                font_size=self.now_title_label.font_size,
-                bold=getattr(self.now_title_label, "bold", False),
-                italic=getattr(self.now_title_label, "italic", False),
-                color=self.now_title_label.color,
-                halign="left",
-                valign="middle",
-                size_hint=(None, None),
-            )
-            # clipの中に入れる（重要）
-            self.title_clip.add_widget(self.now_title_label2)
-
-        # 文字幅をここで確定（tick中にtexture_updateしない）
+    def _start_marquee_if_needed(self, force_restart: bool = False):
+        # playing以外や、短文ならここに来ない想定だが保険で止める
         self.now_title_label.texture_update()
-        lw, lh = self.now_title_label.texture_size
+        lw, _ = self.now_title_label.texture_size
 
-        # 高さはclipに合わせる（縦中央系のズレ防止）
-        self.now_title_label.size = (lw, self.title_clip.height)
-        self.now_title_label.y = self.title_clip.y
-
-        self.now_title_label2.text = self.now_title_label.text
-        self.now_title_label2.texture_update()
-        lw2, lh2 = self.now_title_label2.texture_size
-        self.now_title_label2.size = (lw2, self.title_clip.height)
-        self.now_title_label2.y = self.title_clip.y
-
-        # 短ければスクロールしない（中央寄せ）
         if lw <= self.title_clip.width:
-            self.now_title_label.x = self.title_clip.x + (self.title_clip.width - lw) / 2
-            self.now_title_label2.opacity = 0
+            self._stop_marquee()
+            self._layout_title()
             return
 
-        # パラメータ
-        self._marquee_speed = 40.0       # px/秒
-        self._marquee_blank_sec = 0.6    # 末尾が消えてから次が出るまでの無表示時間
-        self._marquee_pause_until = 0    # 内部用
+        # すでに動いてて、強制再起動じゃないなら何もしない（位置維持）
+        if self._is_marquee_running and (not force_restart):
+            return
 
-        # 2枚目は使わない（電車内方式）
-        if hasattr(self, "now_title_label2"):
-            self.now_title_label2.opacity = 0
+        # 再起動する
+        self._stop_marquee()
 
-        # まず左端からスタート（「末尾が左へ流れ切る」をやるため）
+        self._marquee_pause_until = 0.0
+
+        # 「電車内案内」方式：末尾が流れ切る→無表示→右端から出てくる
         self.now_title_label.opacity = 1
-        self.now_title_label.x = self.title_clip.x
-
+        self.now_title_label.x = self.title_clip.x  # 左端から開始
         self._is_marquee_running = True
-
-        # tick開始
         self._marquee_ev = Clock.schedule_interval(self._tick_marquee, 1/60)
-
 
     def _tick_marquee(self, dt):
         import time
@@ -397,29 +359,25 @@ class CarDashboard(BoxLayout):
         clip_left = self.title_clip.x
         clip_right = self.title_clip.x + self.title_clip.width
 
-        # 無表示(待ち)中なら何もしない
-        pause_until = getattr(self, "_marquee_pause_until", 0)
+        # 無表示(待ち)中なら何もしない（＝「一度消える」を作る）
+        pause_until = getattr(self, "_marquee_pause_until", 0.0)
         if time.time() < pause_until:
             return
 
         # 左へ移動
         dx = speed * dt
-        a.x = a.x - dx
+        a.x -= dx
 
-        # ★末尾が完全に左へ消えたら（右端がclip左端より左）
+        # 末尾が完全に左へ消えたら
         if a.right < clip_left:
-            # 右端の外に戻す（ここから先頭が出てくる）
-            a.x = clip_right
+            # ほんの少し右にオフセット（チラ見え防止）
+            a.x = clip_right + 6
 
-            # ちょっと待ってから出す（電車内の「間」）
+            # 無表示の間を作る
             self._marquee_pause_until = time.time() + blank
-
-
-
 
     # ===== Music：増殖防止 =====
     def open_music(self, *_):
-
         import time
 
         now = time.time()
@@ -434,7 +392,6 @@ class CarDashboard(BoxLayout):
         user_data_dir = os.path.expanduser("~/chromium_ytm_profile")
         os.makedirs(user_data_dir, exist_ok=True)
 
-        # chromium コマンド名が環境で違うことがあるので吸収
         chromium_cmd = (shutil.which("chromium")
                         or shutil.which("chromium-browser")
                         or "chromium")
@@ -447,13 +404,11 @@ class CarDashboard(BoxLayout):
             return [line.strip() for line in r.stdout.splitlines() if line.strip().isdigit()]
 
         def focus_by_pid(pid: str) -> bool:
-            # そのPIDのウィンドウをアクティブ化（複数あっても先頭でOK）
             cmd = f"xdotool search --all --pid {pid} windowactivate --sync %@"
             r = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             return r.returncode == 0
 
         def focus_any_chromium_window() -> bool:
-            # クラス名で前面化（環境差あるので複数試す）
             for cls in ("chromium", "Chromium", "chromium-browser"):
                 r = subprocess.run(["wmctrl", "-xa", cls],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -463,7 +418,6 @@ class CarDashboard(BoxLayout):
 
         pids = pgrep_pids()
 
-        # 起動済みなら：前面化を最優先。ダメなら最後に1回だけURLを開く（開かない対策）
         if pids:
             print("[UI] Chromium already running. Focusing window...")
             ok = focus_by_pid(pids[0]) or focus_any_chromium_window()
@@ -477,7 +431,6 @@ class CarDashboard(BoxLayout):
                 ], start_new_session=True)
             return
 
-        # 起動して前面に
         print("[UI] Launching Chromium (app mode)...")
         subprocess.Popen([
             chromium_cmd,
@@ -486,7 +439,6 @@ class CarDashboard(BoxLayout):
         ], start_new_session=True)
 
         time.sleep(0.6)
-        # 起動直後も前面化を試す
         pids = pgrep_pids()
         if pids:
             focus_by_pid(pids[0]) or focus_any_chromium_window()
@@ -536,4 +488,5 @@ class CarDashboardApp(App):
 
 if __name__ == "__main__":
     CarDashboardApp().run()
+
 
