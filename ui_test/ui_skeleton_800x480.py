@@ -1,0 +1,633 @@
+# ui_test/ui_skeleton_800x480.py
+
+from kivy.config import Config
+Config.set("graphics", "width", "800")
+Config.set("graphics", "height", "480")
+Config.set("graphics", "resizable", "0")
+
+import os
+import sys
+from kivy.core.text import LabelBase
+
+from kivy.app import App
+from kivy.lang import Builder
+from kivy.properties import StringProperty
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.metrics import dp
+from kivy.factory import Factory
+
+
+
+THEME = {
+    "bg": "#0E1116",
+    "panel": "#151A21",
+    "stroke": "#1F2630",
+    "text_main": "#E6EBF2",
+    "text_sub": "#9AA6B2",
+    "accent": "#3A86FF",
+    "accent_muted": "#5E7FBF",
+    "danger": "#FF6B6B",
+    "radius": 16,
+}
+
+KV = """
+
+<Label>:
+    font_name: "JP"
+
+<ThemedPanel@BoxLayout>:
+    canvas.before:
+        Color:
+            rgba: app.hex_to_rgba(app.theme["panel"])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [app.theme["radius"],]
+        Color:
+            rgba: app.hex_to_rgba(app.theme["stroke"])
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, app.theme["radius"])
+            width: 1.0
+
+<ThemedDialog@BoxLayout>:
+    padding: dp(16)
+    canvas.before:
+        # backdropっぽい暗色
+        Color:
+            rgba: 0, 0, 0, 0.35
+        Rectangle:
+            pos: -dp(2000), -dp(2000)
+            size: dp(4000), dp(4000)
+
+    canvas.after:
+        # card (dialog本体)
+        Color:
+            rgba: app.hex_to_rgba(app.theme["panel"])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(18),]
+        Color:
+            rgba: app.hex_to_rgba(app.theme["stroke"])
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(18))
+            width: 1.0
+
+<ThemedButton@Button>:
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    color: app.hex_to_rgba(app.theme["text_main"])
+    font_size: "18sp"
+    canvas.before:
+        Color:
+            rgba: app.hex_to_rgba(app.theme["stroke"])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [app.theme["radius"],]
+        Color:
+            rgba: app.hex_to_rgba(app.theme["panel"])
+        RoundedRectangle:
+            pos: self.x+dp(1), self.y+dp(1)
+            size: self.width-dp(2), self.height-dp(2)
+            radius: [app.theme["radius"],]
+    on_press:
+        self.color = app.hex_to_rgba(app.theme["accent"])
+    on_release:
+        self.color = app.hex_to_rgba(app.theme["text_main"])
+
+<IconButton@Button>:
+    font_name: "SYM"
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    color: app.hex_to_rgba(app.theme["text_main"])
+    font_size: "20sp"
+    bold: True
+    canvas.before:
+        # outer stroke
+        Color:
+            rgba: app.hex_to_rgba(app.theme["stroke"])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [app.theme["radius"],]
+        # inner fill
+        Color:
+            rgba: app.hex_to_rgba(app.theme["panel"])
+        RoundedRectangle:
+            pos: self.x+dp(1), self.y+dp(1)
+            size: self.width-dp(2), self.height-dp(2)
+            radius: [app.theme["radius"],]
+    disabled_color: app.hex_to_rgba(app.theme["text_sub"])
+
+<IconButton@ThemedButton>:
+    font_size: "20sp"
+
+<StatusBar@BoxLayout>:
+    size_hint_y: None
+    height: dp(40)
+    padding: dp(10), dp(6)
+    spacing: dp(8)
+    canvas.before:
+        Color:
+            rgba: app.hex_to_rgba(app.theme["bg"])
+        Rectangle:
+            pos: self.pos
+            size: self.size
+        Color:
+            rgba: app.hex_to_rgba(app.theme["stroke"])
+        Line:
+            points: (self.x, self.y, self.right, self.y)
+            width: 1.0
+
+<HomeScreen>:
+    name: "home"
+    BoxLayout:
+        orientation: "vertical"
+        canvas.before:
+            Color:
+                rgba: app.hex_to_rgba(app.theme["bg"])
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        StatusBar:
+            Label:
+                text: root.time_text
+                color: app.hex_to_rgba(app.theme["text_main"])
+                font_size: "16sp"
+                size_hint_x: None
+                width: dp(72)
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "HOME"
+                color: app.hex_to_rgba(app.theme["text_sub"])
+                font_size: "14sp"
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+            BoxLayout:
+                size_hint_x: None
+                width: dp(140)
+                spacing: dp(6)
+                Label:
+                    text: "GPS"
+                    color: app.hex_to_rgba(app.theme["text_sub"])
+                    font_size: "14sp"
+                    size_hint_x: None
+                    width: dp(38)
+                    halign: "right"
+                    valign: "middle"
+                    text_size: self.size
+                Label:
+                    text: "●"
+                    color: app.hex_to_rgba(app.theme["accent"])
+                    font_size: "16sp"
+                    size_hint_x: None
+                    width: dp(18)
+                Widget:
+
+        BoxLayout:
+            padding: dp(10)
+            spacing: dp(10)
+
+            # Left: Music info
+            ThemedPanel:
+                orientation: "vertical"
+                padding: dp(12)
+                spacing: dp(8)
+
+                Label:
+                    text: "Now Playing"
+                    color: app.hex_to_rgba(app.theme["text_sub"])
+                    font_size: "13sp"
+                    size_hint_y: None
+                    height: dp(18)
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+
+                Label:
+                    text: root.title_text
+                    color: app.hex_to_rgba(app.theme["accent"])
+                    font_size: "26sp"
+                    bold: True
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+
+                Label:
+                    text: root.artist_text
+                    color: app.hex_to_rgba(app.theme["text_main"])
+                    font_size: "18sp"
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.size
+
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(28)
+                    spacing: dp(8)
+                    Label:
+                        text: root.play_state_text
+                        color: app.hex_to_rgba(app.theme["text_sub"])
+                        font_size: "14sp"
+                        halign: "left"
+                        valign: "middle"
+                        text_size: self.size
+                    Widget:
+
+                Widget:
+
+                ThemedButton:
+                    text: "MUSIC (Browser)"
+                    size_hint_y: None
+                    height: dp(46)
+                    on_release: app.goto("music")
+
+            # Right: Mini map
+            ThemedPanel:
+                orientation: "vertical"
+                padding: dp(10)
+                spacing: dp(8)
+                size_hint_x: None
+                width: dp(250)
+
+                # Mini map box (dummy) : 余った高さをここが全部使う
+                BoxLayout:
+                    size_hint_y: 1
+                    canvas.before:
+                        Color:
+                            rgba: app.hex_to_rgba(app.theme["bg"])
+                        RoundedRectangle:
+                            pos: self.pos
+                            size: self.size
+                            radius: [app.theme["radius"],]
+                        Color:
+                            rgba: app.hex_to_rgba(app.theme["stroke"])
+                        Line:
+                            rounded_rectangle: (self.x, self.y, self.width, self.height, app.theme["radius"])
+                            width: 1.0
+                    Label:
+                        text: "MINI MAP\\n(dummy)"
+                        color: app.hex_to_rgba(app.theme["text_sub"])
+                        halign: "center"
+                        valign: "middle"
+                        text_size: self.size
+
+                # Location + Temp under map（そのまま）
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(40)
+                    padding: dp(6), 0
+                    Label:
+                        text: root.location_text
+                        color: app.hex_to_rgba(app.theme["text_main"])
+                        font_size: "13sp"
+                        halign: "left"
+                        valign: "middle"
+                        text_size: self.size
+                    Label:
+                        text: root.temp_text
+                        color: app.hex_to_rgba(app.theme["text_main"])
+                        font_size: "16sp"
+                        bold: True
+                        size_hint_x: None
+                        width: dp(58)
+                        halign: "right"
+                        valign: "middle"
+                        text_size: self.size
+
+                # MAPボタン（そのまま）
+                ThemedButton:
+                    text: "MAP (Full)"
+                    size_hint_y: None
+                    height: dp(46)
+                    on_release: app.goto("map_full")
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(66)
+            padding: dp(10), dp(8)
+            spacing: dp(10)
+            canvas.before:
+                Color:
+                    rgba: app.hex_to_rgba(app.theme["bg"])
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+                Color:
+                    rgba: app.hex_to_rgba(app.theme["stroke"])
+                Line:
+                    points: (self.x, self.top, self.right, self.top)
+                    width: 1.0
+
+            IconButton:
+                text: "⏮"
+                on_release: app.stub("prev")
+
+            IconButton:
+                text: "⏯"
+                on_release: app.stub("play_pause")
+
+            IconButton:
+                text: "⏭"
+                on_release: app.stub("next")
+
+            IconButton:
+                text: "☰"
+                on_release: app.open_system_popup()
+
+<MusicScreen>:
+    name: "music"
+    BoxLayout:
+        orientation: "vertical"
+        canvas.before:
+            Color:
+                rgba: app.hex_to_rgba(app.theme["bg"])
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        StatusBar:
+            Label:
+                text: root.time_text
+                color: app.hex_to_rgba(app.theme["text_main"])
+                font_size: "16sp"
+                size_hint_x: None
+                width: dp(72)
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "MUSIC"
+                color: app.hex_to_rgba(app.theme["text_sub"])
+                font_size: "14sp"
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+            Widget:
+
+        BoxLayout:
+            padding: dp(10)
+            spacing: dp(8)
+
+            ThemedPanel:
+                padding: dp(12)
+                Label:
+                    text: "Browser Area (YouTube Music)\\n※ここは将来、Chromium/ブラウザ表示に置き換え"
+                    color: app.hex_to_rgba(app.theme["text_sub"])
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.size
+
+            
+        BoxLayout:
+            size_hint_y: None
+            height: dp(66)
+            padding: dp(10), dp(8)
+            spacing: dp(10)
+            canvas.before:
+                Color:
+                    rgba: app.hex_to_rgba(app.theme["bg"])
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+                Color:
+                    rgba: app.hex_to_rgba(app.theme["stroke"])
+                Line:
+                    points: (self.x, self.top, self.right, self.top)
+                    width: 1.0
+
+            IconButton:
+                text: "⏮"
+                on_release: app.stub("prev")
+
+            IconButton:
+                text: "⏯"
+                on_release: app.stub("play_pause")
+
+            IconButton:
+                text: "⏭"
+                on_release: app.stub("next")
+
+            ThemedButton:
+                text: "HOME"
+                size_hint_x: None
+                width: dp(120)
+                on_release: app.goto("home")
+
+<MapFullScreen>:
+    name: "map_full"
+    BoxLayout:
+        orientation: "vertical"
+        canvas.before:
+            Color:
+                rgba: app.hex_to_rgba(app.theme["bg"])
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        StatusBar:
+            Label:
+                text: root.time_text
+                color: app.hex_to_rgba(app.theme["text_main"])
+                font_size: "16sp"
+                size_hint_x: None
+                width: dp(72)
+                halign: "left"
+                valign: "middle"
+                text_size: self.size
+            Label:
+                text: "MAP"
+                color: app.hex_to_rgba(app.theme["text_sub"])
+                font_size: "14sp"
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+            BoxLayout:
+                size_hint_x: None
+                width: dp(140)
+                spacing: dp(6)
+                Label:
+                    text: "GPS"
+                    color: app.hex_to_rgba(app.theme["text_sub"])
+                    font_size: "14sp"
+                    size_hint_x: None
+                    width: dp(38)
+                    halign: "right"
+                    valign: "middle"
+                    text_size: self.size
+                Label:
+                    text: "●"
+                    color: app.hex_to_rgba(app.theme["accent"])
+                    font_size: "16sp"
+                    size_hint_x: None
+                    width: dp(18)
+                Widget:
+
+        ThemedPanel:
+            padding: dp(12)
+            Label:
+                text: "FULL MAP AREA (dummy)\\n将来ここにGoogleマップ/ナビを表示"
+                color: app.hex_to_rgba(app.theme["text_sub"])
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(66)
+            padding: dp(10), dp(8)
+            spacing: dp(10)
+            canvas.before:
+                Color:
+                    rgba: app.hex_to_rgba(app.theme["bg"])
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+                Color:
+                    rgba: app.hex_to_rgba(app.theme["stroke"])
+                Line:
+                    points: (self.x, self.top, self.right, self.top)
+                    width: 1.0
+
+            ThemedButton:
+                text: "HOME"
+                on_release: app.goto("home")
+            ThemedButton:
+                text: "+"
+                size_hint_x: None
+                width: dp(86)
+                on_release: app.stub("zoom_in")
+            ThemedButton:
+                text: "-"
+                size_hint_x: None
+                width: dp(86)
+                on_release: app.stub("zoom_out")
+            Widget:
+
+<DangerButton@ThemedButton>:
+    canvas.before:
+        Color:
+            rgba: app.hex_to_rgba(app.theme["danger"])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [app.theme["radius"],]
+        Color:
+            rgba: 0, 0, 0, 0
+
+#:import dp kivy.metrics.dp
+
+<SystemPopup@Popup>:
+    title: "SYSTEM"
+    size_hint: None, None
+    size: dp(440), dp(250)
+    auto_dismiss: True  # 今風なら外側タップで閉じるのが自然
+
+    ThemedDialog:
+        orientation: "vertical"
+        spacing: dp(14)
+
+        Label:
+            text: "System Menu"
+            font_size: "18sp"
+            color: app.hex_to_rgba(app.theme["text_main"])
+            size_hint_y: None
+            height: dp(28)
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(52)
+            spacing: dp(10)
+
+            ThemedButton:
+                text: "再起動"
+                on_release:
+                    root.dismiss()
+                    app.restart_app()
+
+            ThemedButton:
+                text: "終了"
+                on_release:
+                    root.dismiss()
+                    app.quit_app()
+
+            ThemedButton:
+                text: "戻る"
+                on_release: root.dismiss()
+
+"""
+
+class HomeScreen(Screen):
+    time_text = StringProperty("12:34")
+    title_text = StringProperty("Ocean Waves")
+    artist_text = StringProperty("Chillout Lounge")
+    play_state_text = StringProperty("Playing")
+    location_text = StringProperty("埼玉県 草加市")
+    temp_text = StringProperty("14℃")
+
+class MusicScreen(Screen):
+    time_text = StringProperty("12:34")
+
+class MapFullScreen(Screen):
+    time_text = StringProperty("12:34")
+
+class DashApp(App):
+    theme = THEME
+
+    def build(self):
+        base_dir = os.path.dirname(os.path.abspath(__file__))   # ui_test/
+        project_dir = os.path.dirname(base_dir)                 # car_dash/
+
+        font_path_jp  = os.path.join(project_dir, "assets", "fonts", "NotoSansCJK-Regular.ttc")
+        font_path_sym = os.path.join(project_dir, "assets", "fonts", "NotoSansSymbols2-Regular.ttf")
+
+        LabelBase.register(name="JP",  fn_regular=font_path_jp)
+        LabelBase.register(name="SYM", fn_regular=font_path_sym)
+
+        Builder.load_string(KV)  # ★1回だけ
+
+        sm = ScreenManager()
+        sm.add_widget(HomeScreen())
+        sm.add_widget(MusicScreen())
+        sm.add_widget(MapFullScreen())
+        return sm
+
+    def goto(self, name: str):
+        self.root.current = name
+
+    def stub(self, action: str):
+        print(f"[stub] action={action}")
+
+    def hex_to_rgba(self, hex_color: str):
+        hex_color = hex_color.lstrip("#")
+        r = int(hex_color[0:2], 16) / 255.0
+        g = int(hex_color[2:4], 16) / 255.0
+        b = int(hex_color[4:6], 16) / 255.0
+        return (r, g, b, 1)
+    
+    def open_system_popup(self):
+        if not hasattr(self, "_system_popup") or self._system_popup is None:
+            self._system_popup = Factory.SystemPopup()
+        self._system_popup.open()
+
+    def close_system_popup(self):
+        if hasattr(self, "_system_popup") and self._system_popup:
+            self._system_popup.dismiss()
+
+    def quit_app(self):
+        App.get_running_app().stop()
+
+    def restart_app(self):
+        # “アプリ再起動”（OS再起動じゃない）
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+
+
+if __name__ == "__main__":
+    DashApp().run()
