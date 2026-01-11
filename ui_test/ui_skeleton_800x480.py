@@ -31,6 +31,8 @@ from kivy.graphics import Color, RoundedRectangle, Line
 
 from kivy.uix.floatlayout import FloatLayout
 
+from kivy.uix.screenmanager import SlideTransition
+
 
 THEME = {
     "bg": "#0B0F14",          # 少し深く
@@ -41,12 +43,65 @@ THEME = {
     "text_sub": "#A6B2C2",    # 少しだけ明るく
     "accent": "#3A86FF",
     "accent_muted": "#5E7FBF",
-    "danger": "#FF6B6B",
+    "danger": "#D32F2F",
+    "danger_down": "#9A0007",
     "radius": 16,
-    "panel_down": "#0E1520",
+    "panel_down": "#0A1019",
+}
+
+UI = {
+    # spacing
+    "s6": dp(6),
+    "s8": dp(8),
+    "s10": dp(10),
+    "s12": dp(12),
+    "s14": dp(14),
+    "s16": dp(16),
+
+    # radii
+    "r_panel": dp(16),
+    "r_card": dp(18),
+
+    # strokes / depth
+    "stroke_outer": 1.35,
+    "stroke_inner": 1.0,
+    "stroke_shadow": 1.0,
+    "hi_a": 0.38,
+    "shadow_a": 0.35,
+
+    # heights
+    "h_status": dp(40),
+    "h_bottom": dp(66),
+    "h_btn": dp(46),
+    "h_sysbtn": dp(52),
+
+    # widths
+    "w_time": dp(72),
+    "w_right": dp(220),
+    "w_map_panel": dp(250),
+
+    # radius
+    "r_card": 16,
+    "r_toast": 14,
+
+    # strokes
+    "stroke_outer": 1.35,
+    "stroke_inner": 1.0,
+    "stroke_shadow": 1.0,
+
+    # overlay alpha
+    "hi_a": 0.35,
+    "shadow_a": 0.30,
+
+    # spacing / sizes
+    "gap": 10,
+    "pad": 10,
+    "bottom_h": 66,
 }
 
 KV = """
+
+#:import dp kivy.metrics.dp
 
 <Label>:
     font_name: "JP"
@@ -59,28 +114,28 @@ KV = """
         RoundedRectangle:
             pos: self.pos
             size: self.size
-            radius: [app.theme["radius"],]
+            radius: [dp(app.ui["r_card"]),]
 
         # outer stroke
         Color:
             rgba: app.hex_to_rgba(app.theme["stroke"])
         Line:
-            rounded_rectangle: (self.x, self.y, self.width, self.height, app.theme["radius"])
-            width: 1.35
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(app.ui["r_card"]))
+            width: app.ui["stroke_outer"]
 
         # inner highlight (top-ish)
         Color:
-            rgba: app.hex_to_rgba(app.theme["stroke_hi"])
+            rgba: app.hex_to_rgba_a(app.theme["stroke_hi"], app.ui["hi_a"])
         Line:
-            rounded_rectangle: (self.x+dp(1), self.y+dp(1), self.width-dp(2), self.height-dp(2), app.theme["radius"])
-            width: 1.0
+            rounded_rectangle: (self.x + dp(1), self.y + dp(1), self.width - dp(2), self.height - dp(2), dp(app.ui["r_card"]))
+            width: app.ui["stroke_inner"]
 
-        # inner shadow (bottom-ish) : 下側に“沈み”を作る
+        # inner shadow (bottom-ish)
         Color:
-            rgba: 0, 0, 0, 0.35
+            rgba: 0, 0, 0, app.ui["shadow_a"]
         Line:
-            rounded_rectangle: (self.x+dp(2), self.y+dp(2), self.width-dp(4), self.height-dp(4), app.theme["radius"])
-            width: 1.0
+            rounded_rectangle: (self.x + dp(2), self.y + dp(2), self.width - dp(4), self.height - dp(4), dp(app.ui["r_card"]))
+            width: app.ui["stroke_shadow"]
 
 <ThemedDialog@BoxLayout>:
     padding: dp(16)
@@ -92,20 +147,19 @@ KV = """
             pos: -dp(2000), -dp(2000)
             size: dp(4000), dp(4000)
 
-    
         # card (dialog本体)
         Color:
             rgba: app.hex_to_rgba(app.theme["panel"])
         RoundedRectangle:
             pos: self.pos
             size: self.size
-            radius: [dp(18),]
-        
-        # stroke (枠線) 
+            radius: [app.ui["r_card"],]
+
+        # stroke (枠線)
         Color:
             rgba: app.hex_to_rgba(app.theme["stroke"])
         Line:
-            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(18))
+            rounded_rectangle: (self.x, self.y, self.width, self.height, app.ui["r_card"])
             width: 1.0
 
 <ThemedButton@Button>:
@@ -114,33 +168,7 @@ KV = """
     background_color: 0, 0, 0, 0
     color: app.hex_to_rgba(app.theme["text_main"])
     font_size: "18sp"
-    canvas.before:
-        Color:
-            rgba: app.hex_to_rgba(app.theme["stroke"])
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [app.theme["radius"],]
-        Color:
-            rgba: app.hex_to_rgba(app.theme["panel_down"] if self.state=="down" else app.theme["panel"])
-        RoundedRectangle:
-            pos: self.x+dp(1), self.y+dp(1)
-            size: self.width-dp(2), self.height-dp(2)
-            radius: [app.theme["radius"],]
 
-    on_press:
-        self.color = app.hex_to_rgba(app.theme["accent"])
-    on_release:
-        self.color = app.hex_to_rgba(app.theme["text_main"])
-
-<IconButton@Button>:
-    font_name: "SYM"
-    background_normal: ""
-    background_down: ""
-    background_color: 0, 0, 0, 0
-    color: app.hex_to_rgba(app.theme["text_main"])
-    font_size: "20sp"
-    bold: True
     canvas.before:
         # outer stroke
         Color:
@@ -149,23 +177,66 @@ KV = """
             pos: self.pos
             size: self.size
             radius: [app.theme["radius"],]
-        # inner fill
-        Color:
-            rgba: app.hex_to_rgba(app.theme["panel"])
-        RoundedRectangle:
-            pos: self.x+dp(1), self.y+dp(1)
-            size: self.width-dp(2), self.height-dp(2)
-            radius: [app.theme["radius"],]
-    disabled_color: app.hex_to_rgba(app.theme["text_sub"])
 
-<IconButton@ThemedButton>:
+        # fill (downなら暗く)
+        Color:
+            rgba: app.hex_to_rgba(app.theme["panel_down"] if self.state == "down" else app.theme["panel"])
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [app.theme["radius"],]
+
+        # press highlight（押してる間だけ青く光る）
+        Color:
+            rgba: app.hex_to_rgba_a(app.theme["accent"], 0.18 if self.state == "down" else 0)
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [app.theme["radius"],]
+
+        # top highlight（常にうっすら）
+        Color:
+            rgba: app.hex_to_rgba_a(app.theme["stroke_hi"], 0.22)
+        Line:
+            rounded_rectangle: (self.x + dp(1), self.y + dp(1), self.width - dp(2), self.height - dp(2), app.theme["radius"])
+            width: 1.0
+
+<IconButton@Button>:
+    font_name: "SYM"
     font_size: "20sp"
+    bold: True
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    color: app.hex_to_rgba(app.theme["text_main"])
+
+    canvas.before:
+        Color:
+            rgba: app.hex_to_rgba(app.theme["stroke"])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [app.theme["radius"],]
+
+        Color:
+            rgba: app.hex_to_rgba(app.theme["panel_down"] if self.state == "down" else app.theme["panel"])
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [app.theme["radius"],]
+
+        Color:
+            rgba: app.hex_to_rgba_a(app.theme["accent"], 0.22 if self.state == "down" else 0)
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [app.theme["radius"],]
 
 <StatusBar@BoxLayout>:
     size_hint_y: None
-    height: dp(40)
-    padding: dp(10), dp(6)
-    spacing: dp(8)
+    height: app.ui["h_status"]
+    padding: app.ui["s10"], app.ui["s6"]
+    spacing: app.ui["s8"]
     canvas.before:
         Color:
             rgba: app.hex_to_rgba(app.theme["bg"])
@@ -195,7 +266,7 @@ KV = """
                 color: app.hex_to_rgba(app.theme["text_main"])
                 font_size: "16sp"
                 size_hint_x: None
-                width: dp(72)
+                width: app.ui["w_time"]
                 halign: "left"
                 valign: "middle"
                 text_size: self.size
@@ -208,7 +279,7 @@ KV = """
                 text_size: self.size
             BoxLayout:
                 size_hint_x: None
-                width: dp(220)
+                width: app.ui["w_right"]
                 spacing: dp(8)
 
                 # SPEED
@@ -308,8 +379,8 @@ KV = """
                 ThemedButton:
                     text: "MUSIC (Browser)"
                     size_hint_y: None
-                    height: dp(46)
-                    on_release: app.goto("music")
+                    height: app.ui["h_btn"]
+                    on_release: app.goto("music", "left")
 
             # Right: Mini map
             ThemedPanel:
@@ -319,7 +390,7 @@ KV = """
                 size_hint_x: None
                 width: dp(250)
 
-                # Mini map box (dummy) : 余った高さをここが全部使う
+                # Mini map box (dummy)
                 BoxLayout:
                     size_hint_y: 1
                     canvas.before:
@@ -341,7 +412,7 @@ KV = """
                         valign: "middle"
                         text_size: self.size
 
-                # Location + Temp under map（そのまま）
+                # Location + Temp under map
                 BoxLayout:
                     size_hint_y: None
                     height: dp(40)
@@ -364,18 +435,17 @@ KV = """
                         valign: "middle"
                         text_size: self.size
 
-                # MAPボタン（そのまま）
                 ThemedButton:
                     text: "MAP (Full)"
                     size_hint_y: None
-                    height: dp(46)
-                    on_release: app.goto("map_full")
+                    height: app.ui["h_btn"]
+                    on_release: app.goto("map_full", "left")
 
         BoxLayout:
             size_hint_y: None
-            height: dp(66)
-            padding: dp(10), dp(8)
-            spacing: dp(10)
+            height: app.ui["h_bottom"]
+            padding: app.ui["s10"], app.ui["s8"]
+            spacing: app.ui["s10"]
             canvas.before:
                 Color:
                     rgba: app.hex_to_rgba(app.theme["bg"])
@@ -447,12 +517,11 @@ KV = """
                     valign: "middle"
                     text_size: self.size
 
-            
         BoxLayout:
             size_hint_y: None
-            height: dp(66)
-            padding: dp(10), dp(8)
-            spacing: dp(10)
+            height: app.ui["h_bottom"]
+            padding: app.ui["s10"], app.ui["s8"]
+            spacing: app.ui["s10"]
             canvas.before:
                 Color:
                     rgba: app.hex_to_rgba(app.theme["bg"])
@@ -481,7 +550,7 @@ KV = """
                 text: "HOME"
                 size_hint_x: None
                 width: dp(120)
-                on_release: app.goto("home")
+                on_release: app.goto("home", "right")
 
 <MapFullScreen>:
     name: "map_full"
@@ -543,9 +612,9 @@ KV = """
 
         BoxLayout:
             size_hint_y: None
-            height: dp(66)
-            padding: dp(10), dp(8)
-            spacing: dp(10)
+            height: app.ui["h_bottom"]
+            padding: app.ui["s10"], app.ui["s8"]
+            spacing: app.ui["s10"]
             canvas.before:
                 Color:
                     rgba: app.hex_to_rgba(app.theme["bg"])
@@ -560,7 +629,7 @@ KV = """
 
             ThemedButton:
                 text: "HOME"
-                on_release: app.goto("home")
+                on_release: app.goto("home", "right")
             ThemedButton:
                 text: "+"
                 size_hint_x: None
@@ -573,18 +642,37 @@ KV = """
                 on_release: app.stub("zoom_out")
             Widget:
 
-<DangerButton@ThemedButton>:
+<DangerButton@Button>:
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    color: 1, 1, 1, 1
+    font_size: "18sp"
+
     canvas.before:
+        # outer stroke（赤枠）
         Color:
             rgba: app.hex_to_rgba(app.theme["danger"])
         RoundedRectangle:
             pos: self.pos
             size: self.size
             radius: [app.theme["radius"],]
-        Color:
-            rgba: 0, 0, 0, 0
 
-#:import dp kivy.metrics.dp
+        # fill（押したら暗い赤）
+        Color:
+            rgba: app.hex_to_rgba(app.theme["danger_down"] if self.state == "down" else app.theme["danger"])
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [app.theme["radius"],]
+
+        # 押下中ハイライト（ほんの少し）
+        Color:
+            rgba: (1, 1, 1, 0.10) if self.state == "down" else (1, 1, 1, 0)
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [app.theme["radius"],]
 
 <SystemPopup@Popup>:
     title: "SYSTEM"
@@ -607,14 +695,10 @@ KV = """
             cols: 2
             spacing: dp(10)
             padding: 0, 0, 0, 0
-
-            # ★ここが重要：高さを中身に追従させる
             size_hint_y: None
             height: self.minimum_height
-
-            # 2行分のボタン高さを固定して“揃える”
             row_force_default: True
-            row_default_height: dp(52)
+            row_default_height: app.ui["h_sysbtn"]
 
             ThemedButton:
                 text: "再起動"
@@ -689,6 +773,14 @@ class MapFullScreen(Screen):
 class DashApp(App):
     theme = THEME
 
+    ui = UI
+
+    TRANSITION_SEC = 0.28  # ← 今いい感じの値に固定
+
+    def hex_to_rgba_a(self, hex_color: str, a: float):
+        r, g, b, _ = self.hex_to_rgba(hex_color)
+        return (r, g, b, a)
+    
     def build(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))   # ui_test/
         project_dir = os.path.dirname(base_dir)                 # car_dash/
@@ -709,7 +801,8 @@ class DashApp(App):
         sm.add_widget(MapFullScreen())
         return sm
 
-    def goto(self, name: str):
+    def goto(self, name: str, direction: str = "left"):
+        self.root.transition = SlideTransition(direction=direction, duration=self.TRANSITION_SEC)
         self.root.current = name
 
     def stub(self, action: str):
