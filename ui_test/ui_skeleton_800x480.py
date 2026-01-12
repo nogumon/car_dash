@@ -772,6 +772,10 @@ KV = """
     size: dp(440), dp(240)
     auto_dismiss: True
 
+    background: ""
+    background_color: 0, 0, 0, 0
+    separator_color: 0, 0, 0, 0
+
     ThemedDialog:
         orientation: "vertical"
         spacing: dp(12)
@@ -825,11 +829,18 @@ KV = """
     size_hint: None, None
     size: dp(440), dp(250)
     auto_dismiss: True
-    pos_hint: {"center_x": 0.5, "center_y": 0.48}
+    pos_hint: {"center_x": 0.5, "center_y": 0.5}
+    background: ""
+    background_color: 0, 0, 0, 0
+    separator_color: 0, 0, 0, 0
 
     ThemedDialog:
         orientation: "vertical"
         spacing: dp(14)
+
+        size_hint_y: None
+        height: self.minimum_height
+        padding: dp(16), dp(12)   # ←いらなければ消してOK
 
         Label:
             text: "System Menu"
@@ -837,6 +848,16 @@ KV = """
             color: app.hex_to_rgba(app.theme["text_main"])
             size_hint_y: None
             height: dp(28)
+        
+        Widget:
+            size_hint_y: None
+            height: dp(1)
+            canvas.before:
+                Color:
+                    rgba: app.hex_to_rgba_a(app.theme["stroke_hi"], 0.55)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
 
         GridLayout:
             cols: 2
@@ -869,7 +890,6 @@ KV = """
                 text: "戻る"
                 on_release: root.dismiss()
 
-        # ここをGridの外に出して「横幅いっぱい」にする
         HoldDanger:
             size_hint_y: None
             height: app.ui["h_sysbtn"]
@@ -877,6 +897,7 @@ KV = """
             on_hold_confirm:
                 root.dismiss()
                 app.request_quit()
+
 
 <ThemeOption@Button>:
     background_normal: ""
