@@ -33,6 +33,11 @@ from kivy.uix.floatlayout import FloatLayout
 
 from kivy.uix.screenmanager import SlideTransition
 
+from kivy.properties import DictProperty, NumericProperty
+from kivy.uix.button import Button
+
+from kivy.properties import NumericProperty, BooleanProperty
+
 
 THEME = {
     "bg": "#0B0F14",          # 少し深く
@@ -47,6 +52,51 @@ THEME = {
     "danger_down": "#9A0007",
     "radius": 16,
     "panel_down": "#0A1019",
+}
+
+THEMES = {
+    "blue": {
+        "bg": "#0B0F14",
+        "panel": "#121925",
+        "stroke": "#2A3646",
+        "stroke_hi": "#3A4A60",
+        "text_main": "#E6EBF2",
+        "text_sub": "#A6B2C2",
+        "accent": "#3A86FF",
+        "accent_muted": "#5E7FBF",
+        "danger": "#D32F2F",
+        "danger_down": "#9A0007",
+        "radius": 16,
+        "panel_down": "#0A1019",
+    },
+    "red": {
+        "bg": "#0B0B10",
+        "panel": "#1A0F14",
+        "stroke": "#4A2A33",
+        "stroke_hi": "#6A3A46",
+        "text_main": "#F2E6EA",
+        "text_sub": "#C2A6B0",
+        "accent": "#FF3B6B",
+        "accent_muted": "#BF5E7A",
+        "danger": "#FF2A2A",
+        "danger_down": "#C40000",
+        "radius": 16,
+        "panel_down": "#12080C",
+    },
+    "retro": {
+        "bg": "#0C0A07",
+        "panel": "#15100A",
+        "stroke": "#4A3B2A",
+        "stroke_hi": "#7A6345",
+        "text_main": "#F1E6D3",
+        "text_sub": "#BFAF95",
+        "accent": "#D8A24A",
+        "accent_muted": "#B88A45",
+        "danger": "#D63A2A",
+        "danger_down": "#8F1F16",
+        "radius": 16,
+        "panel_down": "#120D08",
+    },
 }
 
 UI = {
@@ -674,11 +724,108 @@ KV = """
             size: self.width - dp(2), self.height - dp(2)
             radius: [app.theme["radius"],]
 
-<SystemPopup@Popup>:
+<HoldDanger@LongPressButton>:
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    color: 1, 1, 1, 1
+    font_size: "18sp"
+    hold_time: 0.75
+
+    # armedになったら枠が光って、内側がさらに沈む
+    canvas.before:
+        # glow（armed中だけ）
+        Color:
+            rgba: app.hex_to_rgba_a(app.theme["accent"], 0.30) if self.armed else (0, 0, 0, 0)
+        RoundedRectangle:
+            pos: self.x - dp(2), self.y - dp(2)
+            size: self.width + dp(4), self.height + dp(4)
+            radius: [app.theme["radius"] + dp(3),]
+
+        # outer stroke（赤枠）
+        Color:
+            rgba: app.hex_to_rgba(app.theme["danger"])
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [app.theme["radius"],]
+
+        # fill（armed中はさらに暗く）
+        Color:
+            rgba: app.hex_to_rgba(app.theme["danger_down"] if self.armed else app.theme["danger"])
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [app.theme["radius"],]
+
+        # pressed highlight（armed中だけ）
+        Color:
+            rgba: (1, 1, 1, 0.12) if self.armed else (1, 1, 1, 0)
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [app.theme["radius"],]
+
+<ThemePopup@Popup>:
+    title: "THEME"
+    size_hint: None, None
+    size: dp(440), dp(240)
+    auto_dismiss: True
+
+    ThemedDialog:
+        orientation: "vertical"
+        spacing: dp(12)
+
+        Label:
+            text: "テーマを選択"
+            font_size: "18sp"
+            color: app.hex_to_rgba(app.theme["text_main"])
+            size_hint_y: None
+            height: dp(28)
+
+        GridLayout:
+            cols: 2
+            spacing: dp(10)
+            size_hint_y: None
+            height: self.minimum_height
+            row_force_default: True
+            row_default_height: app.ui["h_sysbtn"]
+
+            ThemeOption:
+                text: "BLUE"
+                accent_hex: "#3A86FF"
+                panel_hex: "#121925"
+                stroke_hex: "#2A3646"
+                on_release:
+                    app.set_theme("blue")
+                    root.dismiss()
+
+            ThemeOption:
+                text: "RED"
+                accent_hex: "#FF3B6B"
+                panel_hex: "#1A0F14"
+                stroke_hex: "#4A2A33"
+                on_release:
+                    app.set_theme("red")
+                    root.dismiss()
+
+            ThemeOption:
+                text: "RETRO（準備中）"
+                accent_hex: "#D8A24A"
+                panel_hex: "#15100A"
+                stroke_hex: "#4A3B2A"
+                disabled: True
+
+            ThemedButton:
+                text: "戻る"
+                on_release: root.dismiss()
+
+<SystemPopup>:
     title: "SYSTEM"
     size_hint: None, None
     size: dp(440), dp(250)
     auto_dismiss: True
+    pos_hint: {"center_x": 0.5, "center_y": 0.48}
 
     ThemedDialog:
         orientation: "vertical"
@@ -712,15 +859,61 @@ KV = """
                     root.dismiss()
                     app.save_log()
 
-            DangerButton:
-                text: "終了"
+            ThemedButton:
+                text: "テーマ"
                 on_release:
                     root.dismiss()
-                    app.quit_app()
+                    app.open_theme_popup()
 
             ThemedButton:
                 text: "戻る"
                 on_release: root.dismiss()
+
+        # ここをGridの外に出して「横幅いっぱい」にする
+        HoldDanger:
+            size_hint_y: None
+            height: app.ui["h_sysbtn"]
+            text: "終了（長押し→離す）"
+            on_hold_confirm:
+                root.dismiss()
+                app.request_quit()
+
+<ThemeOption@Button>:
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    color: 1, 1, 1, 1
+    font_size: "18sp"
+
+    # 外から渡す色
+    accent_hex: "#3A86FF"
+    panel_hex: "#121925"
+    stroke_hex: "#2A3646"
+
+    canvas.before:
+        # outer
+        Color:
+            rgba: app.hex_to_rgba(self.stroke_hex)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(16),]
+
+        # fill（押下で少し暗く）
+        Color:
+            rgba: app.hex_to_rgba(self.panel_hex)
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [dp(16),]
+
+        # accent bar（左にテーマ色）
+        Color:
+            rgba: app.hex_to_rgba(self.accent_hex)
+        RoundedRectangle:
+            pos: self.x + dp(10), self.y + dp(10)
+            size: dp(10), self.height - dp(20)
+            radius: [dp(6),]
 
 """
 class _TeeStream:
@@ -750,6 +943,68 @@ class _TeeStream:
         except Exception:
             pass
 
+class LongPressButton(Button):
+    """
+    押す → hold_time経過で「armed=True」「見た目をdown」にする
+    離す → armedなら on_hold_confirm を発火（＝離した瞬間に確定）
+    """
+    __events__ = ("on_hold_confirm",)
+
+    hold_time = NumericProperty(0.75)
+    armed = BooleanProperty(False)
+
+    _ev = None
+
+    def on_press(self):
+        self.armed = False
+        # 長押しタイマー開始
+        if self._ev:
+            self._ev.cancel()
+        self._ev = Clock.schedule_once(self._arm, self.hold_time)
+
+    def _arm(self, *_):
+        self._ev = None
+        self.armed = True
+        # 見た目を「押し込み」に固定（離すまで down）
+        self.state = "down"
+
+    def on_release(self):
+        # タイマーキャンセル
+        if self._ev:
+            self._ev.cancel()
+            self._ev = None
+
+        # armed なら離した瞬間に確定
+        if self.armed:
+            self.dispatch("on_hold_confirm")
+
+        # 状態リセット
+        self.armed = False
+        self.state = "normal"
+
+    def on_hold_confirm(self, *args):
+        pass
+
+
+class SystemPopup(Popup):
+    # フェード時間
+    fade_sec = NumericProperty(0.16)
+
+    def on_open(self):
+        # content全体をフェードイン
+        if self.content:
+            self.content.opacity = 0
+            Animation(opacity=1, d=self.fade_sec, t="out_quad").start(self.content)
+
+    def dismiss(self, *largs, **kwargs):
+        # フェードアウトしてから閉じる
+        if self.content:
+            anim = Animation(opacity=0, d=self.fade_sec, t="out_quad")
+            anim.bind(on_complete=lambda *_: super(SystemPopup, self).dismiss(*largs, **kwargs))
+            anim.start(self.content)
+            return
+        return super().dismiss(*largs, **kwargs)
+    
 class HomeScreen(Screen):
     time_text = StringProperty("12:34")
     mode_text = StringProperty("HOME")   # 追加
@@ -771,16 +1026,48 @@ class MapFullScreen(Screen):
     speed_text = StringProperty("0 km/h")  # 追加
 
 class DashApp(App):
-    theme = THEME
-
+    # 追加：テーマは DictProperty にする（KVが追従しやすい）
+    theme = DictProperty(THEMES["blue"])
     ui = UI
 
-    TRANSITION_SEC = 0.28  # ← 今いい感じの値に固定
+    TRANSITION_SEC = 0.28
+    _theme_order = ["blue", "red", "retro"]
+    _theme_i = 0
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        # 直近ログを溜める（多すぎると重いので上限）
+        self._log_buf = deque(maxlen=3000)
+
+        # stdout/stderrをTeeして、printや例外も保存対象にする
+        self._orig_stdout = sys.stdout
+        self._orig_stderr = sys.stderr
+        sys.stdout = _TeeStream(self._orig_stdout, self._log_buf)
+        sys.stderr = _TeeStream(self._orig_stderr, self._log_buf, prefix="[ERR] ")
+
+    def set_theme(self, key: str):
+        if key not in THEMES:
+            print(f"[theme] unknown: {key}")
+            return
+        self.theme = dict(THEMES[key])  # 新しいdictを代入
+        print(f"[theme] {key}")
+
+    def cycle_theme(self):
+        self._theme_i = (self._theme_i + 1) % len(self._theme_order)
+        self.set_theme(self._theme_order[self._theme_i])
+
+    def hex_to_rgba(self, hex_color: str):
+        hex_color = hex_color.lstrip("#")
+        r = int(hex_color[0:2], 16) / 255.0
+        g = int(hex_color[2:4], 16) / 255.0
+        b = int(hex_color[4:6], 16) / 255.0
+        return (r, g, b, 1)
 
     def hex_to_rgba_a(self, hex_color: str, a: float):
         r, g, b, _ = self.hex_to_rgba(hex_color)
         return (r, g, b, a)
-    
+
     def build(self):
         base_dir = os.path.dirname(os.path.abspath(__file__))   # ui_test/
         project_dir = os.path.dirname(base_dir)                 # car_dash/
@@ -808,13 +1095,6 @@ class DashApp(App):
     def stub(self, action: str):
         print(f"[stub] action={action}")
 
-    def hex_to_rgba(self, hex_color: str):
-        hex_color = hex_color.lstrip("#")
-        r = int(hex_color[0:2], 16) / 255.0
-        g = int(hex_color[2:4], 16) / 255.0
-        b = int(hex_color[4:6], 16) / 255.0
-        return (r, g, b, 1)
-    
     def open_system_popup(self):
         if not hasattr(self, "_system_popup") or self._system_popup is None:
             self._system_popup = Factory.SystemPopup()
@@ -827,22 +1107,19 @@ class DashApp(App):
     def quit_app(self):
         App.get_running_app().stop()
 
+    def request_quit(self):
+        self._toast("See you later", seconds=2.0)
+        # 見える時間を確保してから終了
+        Clock.schedule_once(lambda *_: self.quit_app(), 1.2)
+
     def restart_app(self):
-        # “アプリ再起動”（OS再起動じゃない）
         os.execv(sys.executable, [sys.executable] + sys.argv)
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
 
-        # 直近ログを溜める（多すぎると重いので上限）
-        self._log_buf = deque(maxlen=3000)
+    def open_theme_popup(self):
+        if not hasattr(self, "_theme_popup") or self._theme_popup is None:
+            self._theme_popup = Factory.ThemePopup()
+        self._theme_popup.open()
 
-        # stdout/stderrをTeeして、printや例外も保存対象にする
-        self._orig_stdout = sys.stdout
-        self._orig_stderr = sys.stderr
-        sys.stdout = _TeeStream(self._orig_stdout, self._log_buf)
-        sys.stderr = _TeeStream(self._orig_stderr, self._log_buf, prefix="[ERR] ")
-    
     def _ellipsize_middle(self, s: str, max_chars: int = 46) -> str:
         """長いパス等を中央...省略にする（UI崩れ防止）"""
         if len(s) <= max_chars:
@@ -866,16 +1143,14 @@ class DashApp(App):
 
         with box.canvas.before:
             Color(rgba=self.hex_to_rgba(self.theme["panel"]))
-            bg = RoundedRectangle(radius=[dp(14)])
+            bg = RoundedRectangle(radius=[dp(self.ui.get("r_toast", 14))])
             Color(rgba=self.hex_to_rgba(self.theme["stroke"]))
             border = Line(width=1)
 
         def _update_bg(*_):
             bg.pos = box.pos
             bg.size = box.size
-            border.rounded_rectangle = (
-                box.x, box.y, box.width, box.height, dp(14)
-        )
+            border.rounded_rectangle = (box.x, box.y, box.width, box.height, dp(self.ui.get("r_toast", 14)))
 
         box.bind(pos=_update_bg, size=_update_bg)
 
@@ -897,10 +1172,7 @@ class DashApp(App):
         box.add_widget(lbl)
 
         # 画面下中央に配置
-        box.pos = (
-            (Window.width - box.width) / 2,
-            dp(20),
-        )
+        box.pos = ((Window.width - box.width) / 2, dp(20))
 
         root.add_widget(box)
         Window.add_widget(root)
@@ -915,38 +1187,6 @@ class DashApp(App):
 
         Clock.schedule_once(_dismiss, seconds)
 
-    def save_log(self):
-        try:
-            # 保存先: car_dash/logs/
-            base_dir = os.path.dirname(os.path.abspath(__file__))  # ui_test/
-            project_dir = os.path.dirname(base_dir)                # car_dash/
-            logs_dir = os.path.join(project_dir, "logs")
-            os.makedirs(logs_dir, exist_ok=True)
-
-            ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            path = os.path.join(logs_dir, f"dash_{ts}.log")
-
-            # ちょいヘッダも入れる（後から見やすい）
-            header = []
-            header.append(f"timestamp: {ts}\n")
-            header.append(f"python: {sys.version}\n")
-            header.append(f"kivy: (see runtime)\n")
-            header.append(f"current_screen: {getattr(self.root, 'current', 'unknown')}\n")
-            header.append("-" * 60 + "\n")
-
-            with open(path, "w", encoding="utf-8") as f:
-                f.writelines(header)
-                f.writelines(list(self._log_buf))
-
-            rel = os.path.relpath(path, project_dir)  # 例: logs/dash_xxx.log
-            self.flash_mode(f"ログ保存: {rel}", seconds=5.0)
-            print(f"[log] saved: {path}")
-
-        except Exception as e:
-            # 失敗しても画面で分かるように
-            self._toast(f"ログ保存に失敗: {e}", seconds=2.0)
-            raise
-    
     def flash_mode(self, message: str, seconds: float = 5.0):
         # 現在画面のmode_textを一時的にメッセージにする
         scr = self.root.get_screen(self.root.current)
@@ -971,6 +1211,35 @@ class DashApp(App):
 
         self._mode_flash_ev = Clock.schedule_once(_restore, seconds)
 
+    def save_log(self):
+        try:
+            # 保存先: car_dash/logs/
+            base_dir = os.path.dirname(os.path.abspath(__file__))  # ui_test/
+            project_dir = os.path.dirname(base_dir)                # car_dash/
+            logs_dir = os.path.join(project_dir, "logs")
+            os.makedirs(logs_dir, exist_ok=True)
+
+            ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            path = os.path.join(logs_dir, f"dash_{ts}.log")
+
+            header = []
+            header.append(f"timestamp: {ts}\n")
+            header.append(f"python: {sys.version}\n")
+            header.append(f"current_screen: {getattr(self.root, 'current', 'unknown')}\n")
+            header.append("-" * 60 + "\n")
+
+            with open(path, "w", encoding="utf-8") as f:
+                f.writelines(header)
+                f.writelines(list(self._log_buf))
+
+            rel = os.path.relpath(path, project_dir)  # 例: logs/dash_xxx.log
+            self.flash_mode(f"ログ保存: {rel}", seconds=5.0)
+            print(f"[log] saved: {path}")
+
+        except Exception as e:
+            self._toast(f"ログ保存に失敗: {e}", seconds=2.0)
+            raise
+
     def _demo_speed(self, dt):
         # ダミー：0→80を往復
         if not hasattr(self, "_spd"):
@@ -987,7 +1256,6 @@ class DashApp(App):
         spd = f"{self._spd} km/h"
         for name in ("home", "music", "map_full"):
             self.root.get_screen(name).speed_text = spd
-
 
 if __name__ == "__main__":
     DashApp().run()
