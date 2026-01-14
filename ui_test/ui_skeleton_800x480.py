@@ -67,35 +67,36 @@ THEMES = {
         "danger": "#D32F2F",
         "danger_down": "#9A0007",
         "radius": 16,
-        "panel_down": "#0A1019",
+        "panel_down": "#0E1520",
     },
     "red": {
-        "bg": "#0B0B10",
+        "bg": "#0B0F14",
         "panel": "#1A0F14",
         "stroke": "#4A2A33",
-        "stroke_hi": "#6A3A46",
-        "text_main": "#F2E6EA",
-        "text_sub": "#C2A6B0",
+        "stroke_hi": "#6A3A47",
+        "text_main": "#E6EBF2",
+        "text_sub": "#A6B2C2",
         "accent": "#FF3B6B",
-        "accent_muted": "#BF5E7A",
-        "danger": "#FF2A2A",
-        "danger_down": "#C40000",
+        "accent_muted": "#D06B86",
+        "danger": "#D32F2F",
+        "danger_down": "#9A0007",
         "radius": 16,
-        "panel_down": "#12080C",
+        "panel_down": "#120B10",
     },
+    # retroは後で木目にする前提（今はダミーでOK）
     "retro": {
-        "bg": "#0C0A07",
-        "panel": "#15100A",
-        "stroke": "#4A3B2A",
-        "stroke_hi": "#7A6345",
-        "text_main": "#F1E6D3",
-        "text_sub": "#BFAF95",
+        "bg": "#0B0F14",
+        "panel": "#121925",
+        "stroke": "#2A3646",
+        "stroke_hi": "#3A4A60",
+        "text_main": "#E6EBF2",
+        "text_sub": "#A6B2C2",
         "accent": "#D8A24A",
-        "accent_muted": "#B88A45",
-        "danger": "#D63A2A",
-        "danger_down": "#8F1F16",
+        "accent_muted": "#C09040",
+        "danger": "#D32F2F",
+        "danger_down": "#9A0007",
         "radius": 16,
-        "panel_down": "#120D08",
+        "panel_down": "#0E1520",
     },
 }
 
@@ -766,63 +767,127 @@ KV = """
             size: self.width - dp(2), self.height - dp(2)
             radius: [app.theme["radius"],]
 
-<ThemePopup@Popup>:
-    title: "THEME"
-    size_hint: None, None
-    size: dp(440), dp(240)
-    auto_dismiss: True
+<ThemeOption@Button>:
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    color: 1, 1, 1, 1
+    font_size: "18sp"
 
+    key: "blue"
+    accent_hex: "#3A86FF"
+    panel_hex: "#121925"
+    stroke_hex: "#2A3646"
+
+    canvas.before:
+        # outer stroke
+        Color:
+            rgba: app.hex_to_rgba(self.stroke_hex)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(16),]
+
+        # fill
+        Color:
+            rgba: app.hex_to_rgba(self.panel_hex)
+        RoundedRectangle:
+            pos: self.x + dp(1), self.y + dp(1)
+            size: self.width - dp(2), self.height - dp(2)
+            radius: [dp(16),]
+
+        # accent bar (left)
+        Color:
+            rgba: app.hex_to_rgba(self.accent_hex)
+        RoundedRectangle:
+            pos: self.x + dp(12), self.y + dp(10)
+            size: dp(10), self.height - dp(20)
+            radius: [dp(6),]
+
+
+<ThemePopup@Popup>:
+    size_hint: None, None
+    size: dp(520), dp(300)
+    auto_dismiss: True
+    pos_hint: {"center_x": 0.5, "center_y": 0.5}
+
+    # Popup標準枠を消す（二重枠対策）
     background: ""
     background_color: 0, 0, 0, 0
     separator_color: 0, 0, 0, 0
 
-    ThemedDialog:
-        orientation: "vertical"
-        spacing: dp(12)
+    FloatLayout:
+        canvas.before:
+            Color:
+                rgba: 0, 0, 0, 0.35
+            Rectangle:
+                pos: self.pos
+                size: self.size
 
-        Label:
-            text: "テーマを選択"
-            font_size: "18sp"
-            color: app.hex_to_rgba(app.theme["text_main"])
-            size_hint_y: None
-            height: dp(28)
+        ThemedPanel:
+            size_hint: None, None
+            size: dp(520), dp(300)
+            pos_hint: {"center_x": 0.5, "center_y": 0.5}
+            orientation: "vertical"
+            padding: dp(16), dp(12)
+            spacing: dp(12)
 
-        GridLayout:
-            cols: 2
-            spacing: dp(10)
-            size_hint_y: None
-            height: self.minimum_height
-            row_force_default: True
-            row_default_height: app.ui["h_sysbtn"]
+            Label:
+                text: "Theme"
+                font_size: "18sp"
+                color: app.hex_to_rgba(app.theme["text_main"])
+                size_hint_y: None
+                height: dp(28)
 
-            ThemeOption:
-                text: "BLUE"
-                accent_hex: "#3A86FF"
-                panel_hex: "#121925"
-                stroke_hex: "#2A3646"
-                on_release:
-                    app.set_theme("blue")
-                    root.dismiss()
+            Widget:
+                size_hint_y: None
+                height: dp(1)
+                canvas.before:
+                    Color:
+                        rgba: app.hex_to_rgba_a(app.theme["stroke_hi"], 0.55)
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
 
-            ThemeOption:
-                text: "RED"
-                accent_hex: "#FF3B6B"
-                panel_hex: "#1A0F14"
-                stroke_hex: "#4A2A33"
-                on_release:
-                    app.set_theme("red")
-                    root.dismiss()
+            GridLayout:
+                cols: 2
+                spacing: dp(10)
+                size_hint_y: None
+                height: self.minimum_height
+                row_force_default: True
+                row_default_height: dp(64)
 
-            ThemeOption:
-                text: "RETRO（準備中）"
-                accent_hex: "#D8A24A"
-                panel_hex: "#15100A"
-                stroke_hex: "#4A3B2A"
-                disabled: True
+                ThemeOption:
+                    text: "BLUE"
+                    key: "blue"
+                    accent_hex: "#3A86FF"
+                    panel_hex: "#121925"
+                    stroke_hex: "#2A3646"
+                    on_release:
+                        app.set_theme(self.key)
+                        root.dismiss()
 
-            ThemedButton:
-                text: "戻る"
-                on_release: root.dismiss()
+                ThemeOption:
+                    text: "RED"
+                    key: "red"
+                    accent_hex: "#FF3B6B"
+                    panel_hex: "#1A0F14"
+                    stroke_hex: "#4A2A33"
+                    on_release:
+                        app.set_theme(self.key)
+                        root.dismiss()
+
+                ThemeOption:
+                    text: "RETRO（準備中）"
+                    key: "retro"
+                    accent_hex: "#D8A24A"
+                    panel_hex: "#15100A"
+                    stroke_hex: "#4A3B2A"
+                    disabled: True
+
+                ThemedButton:
+                    text: "戻る"
+                    on_release: root.dismiss()
 
 <SystemPopup>:
     title: "SYSTEM"
@@ -1069,9 +1134,8 @@ class DashApp(App):
 
     def set_theme(self, key: str):
         if key not in THEMES:
-            print(f"[theme] unknown: {key}")
             return
-        self.theme = dict(THEMES[key])  # 新しいdictを代入
+        self.theme = dict(THEMES[key])  # 新しいdictを代入（再描画が走りやすい）
         print(f"[theme] {key}")
 
     def cycle_theme(self):
@@ -1079,11 +1143,30 @@ class DashApp(App):
         self.set_theme(self._theme_order[self._theme_i])
 
     def hex_to_rgba(self, hex_color: str):
-        hex_color = hex_color.lstrip("#")
-        r = int(hex_color[0:2], 16) / 255.0
-        g = int(hex_color[2:4], 16) / 255.0
-        b = int(hex_color[4:6], 16) / 255.0
-        return (r, g, b, 1)
+        # 防御：Noneや変な文字混入でも落とさない
+        if hex_color is None:
+            return (0, 0, 0, 1)
+
+        s = str(hex_color).strip()
+
+        # よくある「□#xxxxxx」みたいな混入対策
+        s = s.replace("□", "").replace("\ufeff", "").strip()
+
+        # 先頭の#を外す
+        if s.startswith("#"):
+            s = s[1:]
+
+        # 長さチェック
+        if len(s) < 6:
+            return (0, 0, 0, 1)
+
+        try:
+            r = int(s[0:2], 16) / 255.0
+            g = int(s[2:4], 16) / 255.0
+            b = int(s[4:6], 16) / 255.0
+            return (r, g, b, 1)
+        except Exception:
+            return (0, 0, 0, 1)
 
     def hex_to_rgba_a(self, hex_color: str, a: float):
         r, g, b, _ = self.hex_to_rgba(hex_color)
