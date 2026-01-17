@@ -29,6 +29,8 @@ from kivy.core.window import Window
 
 from kivy.graphics import Color, RoundedRectangle, Line
 
+import math
+
 from kivy.uix.floatlayout import FloatLayout
 
 from kivy.uix.screenmanager import SlideTransition
@@ -38,6 +40,12 @@ from kivy.uix.button import Button
 
 from kivy.properties import NumericProperty, BooleanProperty
 
+from kivy.properties import DictProperty, StringProperty
+
+from kivy.uix.widget import Widget
+from kivy.properties import ListProperty, NumericProperty
+
+from kivy.properties import BooleanProperty
 
 THEME = {
     "bg": "#0B0F14",          # 少し深く
@@ -423,7 +431,11 @@ KV = """
                         halign: "left"
                         valign: "middle"
                         text_size: self.size
-                    Widget:
+                    VEqualizer:
+                        id: eq
+                        size_hint: None, None
+                        width: dp(86)
+                        height: dp(26)   # ここは好み。dp(22)〜dp(30)で調整
 
                 Widget:
 
@@ -515,7 +527,7 @@ KV = """
 
             IconButton:
                 text: "⏯"
-                on_release: app.stub("play_pause")
+                on_release: app.toggle_play()
 
             IconButton:
                 text: "⏭"
@@ -767,127 +779,118 @@ KV = """
             size: self.width - dp(2), self.height - dp(2)
             radius: [app.theme["radius"],]
 
-<ThemeOption@Button>:
+<ThemeChoice@Button>:
+    # 使うプロパティ
+    theme_key: "blue"
+    accent_hex: "#3A86FF"
+    disabled: False
+
     background_normal: ""
     background_down: ""
-    background_color: 0, 0, 0, 0
-    color: 1, 1, 1, 1
+    background_color: 0,0,0,0
+    color: app.hex_to_rgba(app.theme["text_main"])
     font_size: "18sp"
+    bold: True
 
-    key: "blue"
-    accent_hex: "#3A86FF"
-    panel_hex: "#121925"
-    stroke_hex: "#2A3646"
+    # 見た目
+    size_hint: 1, 1
 
     canvas.before:
-        # outer stroke
+        # --- base (中身) ---
         Color:
-            rgba: app.hex_to_rgba(self.stroke_hex)
+            rgba: app.hex_to_rgba(app.theme["panel"])
         RoundedRectangle:
             pos: self.pos
             size: self.size
-            radius: [dp(16),]
+            radius: [dp(app.theme["radius"]),]
 
-        # fill
+        # --- 通常枠 ---
         Color:
-            rgba: app.hex_to_rgba(self.panel_hex)
-        RoundedRectangle:
-            pos: self.x + dp(1), self.y + dp(1)
-            size: self.width - dp(2), self.height - dp(2)
-            radius: [dp(16),]
+            rgba: app.hex_to_rgba(app.theme["stroke"])
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(app.theme["radius"]))
+            width: 1.0
 
-        # accent bar (left)
+        # --- 選択中の「発光」(疑似グロー：太い線を薄く重ねる) ---
+        # ここはKVがコケやすいので式を短くしてる
+
+        # 外側ぼんやり
         Color:
-            rgba: app.hex_to_rgba(self.accent_hex)
-        RoundedRectangle:
-            pos: self.x + dp(12), self.y + dp(10)
-            size: dp(10), self.height - dp(20)
-            radius: [dp(6),]
+            rgba: app.hex_to_rgba_a(self.accent_hex, 0.22 if (app.theme_key == self.theme_key and self.state == "down") else (0.16 if (app.theme_key == self.theme_key) else 0.0))
+        Line:
+            rounded_rectangle: (self.x-dp(1), self.y-dp(1), self.width+dp(2), self.height+dp(2), dp(app.theme["radius"])+dp(1))
+            width: 6.0
+
+        # 内側くっきり
+        Color:
+            rgba: app.hex_to_rgba_a(self.accent_hex, 0.38 if (app.theme_key == self.theme_key and self.state == "down") else (0.28 if (app.theme_key == self.theme_key) else 0.0))
+        Line:
+            rounded_rectangle: (self.x, self.y, self.width, self.height, dp(app.theme["radius"]))
+            width: 2.2
+
+    on_release:
+        app.set_theme(self.theme_key)
 
 
 <ThemePopup@Popup>:
+    title: ""
     size_hint: None, None
-    size: dp(520), dp(300)
+    size: dp(520), dp(280)
     auto_dismiss: True
     pos_hint: {"center_x": 0.5, "center_y": 0.5}
+    separator_height: 0
+    background: ""           # ★OS/デフォ枠を消す
+    background_color: 0,0,0,0
 
-    # Popup標準枠を消す（二重枠対策）
-    background: ""
-    background_color: 0, 0, 0, 0
-    separator_color: 0, 0, 0, 0
+    ThemedDialog:
+        orientation: "vertical"
+        spacing: dp(14)
+        padding: dp(16)
 
-    FloatLayout:
-        canvas.before:
-            Color:
-                rgba: 0, 0, 0, 0.35
-            Rectangle:
-                pos: self.pos
-                size: self.size
+        Label:
+            text: "Theme"
+            font_size: "20sp"
+            color: app.hex_to_rgba(app.theme["text_main"])
+            size_hint_y: None
+            height: dp(30)
 
-        ThemedPanel:
-            size_hint: None, None
-            size: dp(520), dp(300)
-            pos_hint: {"center_x": 0.5, "center_y": 0.5}
-            orientation: "vertical"
-            padding: dp(16), dp(12)
+        Widget:
+            size_hint_y: None
+            height: dp(1)
+            canvas.before:
+                Color:
+                    rgba: app.hex_to_rgba_a(app.theme["stroke"], 0.8)
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+        GridLayout:
+            cols: 2
             spacing: dp(12)
+            size_hint_y: None
+            height: dp(150)
 
-            Label:
-                text: "Theme"
-                font_size: "18sp"
-                color: app.hex_to_rgba(app.theme["text_main"])
-                size_hint_y: None
-                height: dp(28)
+            ThemeChoice:
+                text: "BLUE"
+                theme_key: "blue"
+                accent_hex: "#3A86FF"
 
-            Widget:
-                size_hint_y: None
-                height: dp(1)
-                canvas.before:
-                    Color:
-                        rgba: app.hex_to_rgba_a(app.theme["stroke_hi"], 0.55)
-                    Rectangle:
-                        pos: self.pos
-                        size: self.size
+            ThemeChoice:
+                text: "RED"
+                theme_key: "red"
+                accent_hex: "#FF3B6B"
 
-            GridLayout:
-                cols: 2
-                spacing: dp(10)
-                size_hint_y: None
-                height: self.minimum_height
-                row_force_default: True
-                row_default_height: dp(64)
+            ThemeChoice:
+                text: "RETRO（準備中）"
+                theme_key: "retro"
+                accent_hex: "#F0B44C"
+                disabled: True
+                color: app.hex_to_rgba(app.theme["text_sub"])
+                on_release: None   # 念のため
 
-                ThemeOption:
-                    text: "BLUE"
-                    key: "blue"
-                    accent_hex: "#3A86FF"
-                    panel_hex: "#121925"
-                    stroke_hex: "#2A3646"
-                    on_release:
-                        app.set_theme(self.key)
-                        root.dismiss()
-
-                ThemeOption:
-                    text: "RED"
-                    key: "red"
-                    accent_hex: "#FF3B6B"
-                    panel_hex: "#1A0F14"
-                    stroke_hex: "#4A2A33"
-                    on_release:
-                        app.set_theme(self.key)
-                        root.dismiss()
-
-                ThemeOption:
-                    text: "RETRO（準備中）"
-                    key: "retro"
-                    accent_hex: "#D8A24A"
-                    panel_hex: "#15100A"
-                    stroke_hex: "#4A3B2A"
-                    disabled: True
-
-                ThemedButton:
-                    text: "戻る"
-                    on_release: root.dismiss()
+            ThemedButton:
+                text: "戻る"
+                on_release: root.dismiss()
 
 <SystemPopup>:
     title: "SYSTEM"
@@ -1090,7 +1093,121 @@ class SystemPopup(Popup):
             anim.start(self.content)
             return
         return super().dismiss(*largs, **kwargs)
-    
+
+class VEqualizer(Widget):
+    """
+    縦バーの簡易イコライザー（ダミー）
+    - bars本数
+    - vals: 0.0〜1.0
+    """
+    bars = NumericProperty(12)
+    vals = ListProperty([])
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._phase = 0.0
+        self._rects = []
+        self._bg_rects = []
+
+        with self.canvas:
+            # 背景バー（薄く）
+            self._bg_color = Color(1, 1, 1, 0.10)
+            # 実バー（アクセント色、rgbaは後で更新）
+            self._fg_color = Color(1, 1, 1, 0.90)
+
+        self.bind(pos=self._rebuild, size=self._rebuild)
+        self._rebuild()
+
+    def _rebuild(self, *_):
+        # バーを作り直し
+        self.canvas.clear()
+        self._rects = []
+        self._bg_rects = []
+
+        with self.canvas:
+            # 背景バー色
+            self._bg_color = Color(1, 1, 1, 0.10)
+            # 実バー色（あとで theme の accent で更新する）
+            self._fg_color = Color(1, 1, 1, 0.90)
+
+            n = int(self.bars)
+            if n <= 0:
+                return
+
+            gap = dp(3)
+            bar_w = dp(4)
+            total_w = n * bar_w + (n - 1) * gap
+            start_x = self.x + (self.width - total_w) / 2.0
+
+            # vals初期化
+            if len(self.vals) != n:
+                self.vals = [0.3] * n
+
+            # 背景バー（最大高）
+            for i in range(n):
+                x = start_x + i * (bar_w + gap)
+                rr = RoundedRectangle(pos=(x, self.y), size=(bar_w, self.height), radius=[dp(2)])
+                self._bg_rects.append(rr)
+
+            # 実バー（高さは update() で変える）
+            for i in range(n):
+                x = start_x + i * (bar_w + gap)
+                rr = RoundedRectangle(pos=(x, self.y), size=(bar_w, dp(2)), radius=[dp(2)])
+                self._rects.append(rr)
+
+        self._apply_theme_color()
+        self._apply_vals()
+
+    def _apply_theme_color(self):
+        app = App.get_running_app()
+        if not app:
+            return
+        r, g, b, _ = app.hex_to_rgba(app.theme["accent"])
+        self._fg_color.rgba = (r, g, b, 0.90)
+        # 背景バーは stroke 由来にしても良い（好み）
+        sr, sg, sb, _ = app.hex_to_rgba(app.theme["stroke_hi"])
+        self._bg_color.rgba = (sr, sg, sb, 0.22)
+
+    def _apply_vals(self):
+        if not self._rects:
+            return
+        n = len(self._rects)
+        for i in range(n):
+            v = self.vals[i] if i < len(self.vals) else 0.2
+            v = max(0.05, min(1.0, float(v)))
+            h = self.height * v
+            rect = self._rects[i]
+            rect.size = (rect.size[0], h)
+            rect.pos = (rect.pos[0], self.y)
+
+    def update(self, dt):
+        app = App.get_running_app()
+
+        if not app or not app.is_playing:
+            # 再生停止中：ゆっくり0へ
+            if hasattr(self, "vals"):
+                self.vals = [v * 0.8 for v in self.vals]
+                self._apply_vals()
+            return
+
+        n = int(self.bars)
+        if n <= 0:
+            return
+
+        self._phase += dt * 3.2
+
+        vals = []
+        for i in range(n):
+            a = 0.55 + 0.45 * math.sin(self._phase + i * 0.55)
+            b = 0.25 + 0.25 * math.sin(self._phase * 1.9 + i * 0.9)
+            v = 0.18 + 0.72 * max(0.0, a) + b
+            v = max(0.06, min(1.0, v))
+            vals.append(v)
+
+        self.vals = vals
+        self._apply_theme_color()
+        self._apply_vals()
+
 class HomeScreen(Screen):
     time_text = StringProperty("12:34")
     mode_text = StringProperty("HOME")   # 追加
@@ -1114,11 +1231,14 @@ class MapFullScreen(Screen):
 class DashApp(App):
     # 追加：テーマは DictProperty にする（KVが追従しやすい）
     theme = DictProperty(THEMES["blue"])
+    theme_key = StringProperty("blue")
     ui = UI
 
     TRANSITION_SEC = 0.28
     _theme_order = ["blue", "red", "retro"]
     _theme_i = 0
+
+    is_playing = BooleanProperty(True)  # 仮でTrue
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -1133,10 +1253,20 @@ class DashApp(App):
         sys.stderr = _TeeStream(self._orig_stderr, self._log_buf, prefix="[ERR] ")
 
     def set_theme(self, key: str):
+        # ★安全：未知キーは無視
         if key not in THEMES:
             return
-        self.theme = dict(THEMES[key])  # 新しいdictを代入（再描画が走りやすい）
-        print(f"[theme] {key}")
+
+        # DictPropertyは「新しいdict」を代入するとKV側が反応しやすい
+        self.theme = dict(THEMES[key])
+        self.theme_key = key
+
+        # 切替フィードバック
+        self._toast(f"Theme: {key.upper()}", seconds=2.0)
+
+        # 選んだら少しだけ見せて閉じる
+        if hasattr(self, "_theme_popup") and self._theme_popup:
+            Clock.schedule_once(lambda *_: self._theme_popup.dismiss(), 0.15)
 
     def cycle_theme(self):
         self._theme_i = (self._theme_i + 1) % len(self._theme_order)
@@ -1184,7 +1314,11 @@ class DashApp(App):
 
         Builder.load_string(KV)  # ★1回だけ
 
+        Factory.register("VEqualizer", cls=VEqualizer)
+
         Clock.schedule_interval(self._demo_speed, 0.5)
+
+        Clock.schedule_interval(self._tick_eq, 1/30)  # 30fps くらい
 
         sm = ScreenManager()
         sm.add_widget(HomeScreen())
@@ -1196,7 +1330,20 @@ class DashApp(App):
         self.root.transition = SlideTransition(direction=direction, duration=self.TRANSITION_SEC)
         self.root.current = name
 
+    def toggle_play(self):
+        self.is_playing = not self.is_playing
+
+        # 表示用テキストも変える（任意）
+        state = "Playing" if self.is_playing else "Paused"
+        for name in ("home", "music", "map_full"):
+            scr = self.root.get_screen(name)
+            if hasattr(scr, "play_state_text"):
+                scr.play_state_text = state
+
     def stub(self, action: str):
+        if action == "play_pause":
+            self.toggle_play()
+            return
         print(f"[stub] action={action}")
 
     def open_system_popup(self):
@@ -1360,6 +1507,18 @@ class DashApp(App):
         spd = f"{self._spd} km/h"
         for name in ("home", "music", "map_full"):
             self.root.get_screen(name).speed_text = spd
+
+    def _tick_eq(self, dt):
+        # 画面にいるイコライザー全部更新（いれば）
+        try:
+            for scr_name in ("home", "music", "map_full"):
+                scr = self.root.get_screen(scr_name)
+                # idで取る or walkで探す。まずは id を推奨
+                w = getattr(scr, "ids", {}).get("eq", None)
+                if w:
+                    w.update(dt)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     DashApp().run()
