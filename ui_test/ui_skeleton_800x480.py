@@ -47,6 +47,9 @@ from kivy.properties import ListProperty, NumericProperty
 
 from kivy.properties import BooleanProperty
 
+from controllers.dummy import DummyController
+import threading
+
 THEME = {
     "bg": "#0B0F14",          # 少し深く
     "panel": "#121925",       # 少し青寄り
@@ -1238,8 +1241,11 @@ class DashApp(App):
 
     is_playing = BooleanProperty(True)  # 仮でTrue
 
-    def __init__(self, **kwargs):
+    def __init__(self, controller=None, **kwargs):
         super().__init__(**kwargs)
+
+        # Controller差し替え口（無指定ならダミー）
+        self.controller = controller or DummyController()
 
         # 直近ログを溜める（多すぎると重いので上限）
         self._log_buf = deque(maxlen=3000)
@@ -1329,19 +1335,34 @@ class DashApp(App):
         self.root.current = name
 
     def toggle_play(self):
-        self.is_playing = not self.is_playing
+        def _done(res):
+            # controllerがTrue/Falseを返したらそれに従う。Noneなら従来通りトグル。
+            if isinstance(res, bool):
+                self.is_playing = res
+            else:
+                self.is_playing = not self.is_playing
 
-        # 表示用テキストも変える（任意）
-        state = "Playing" if self.is_playing else "Paused"
-        for name in ("home", "music", "map_full"):
-            scr = self.root.get_screen(name)
-            if hasattr(scr, "play_state_text"):
-                scr.play_state_text = state
+            state = "Playing" if self.is_playing else "Paused"
+            for name in ("home", "music", "map_full"):
+                scr = self.root.get_screen(name)
+                if hasattr(scr, "play_state_text"):
+                    scr.play_state_text = state
+
+        self.call_async(self.controller.play_pause, on_done=_done)
 
     def stub(self, action: str):
         if action == "play_pause":
             self.toggle_play()
             return
+
+        if action == "next":
+            self.call_async(self.controller.next_track)
+            return
+
+        if action == "prev":
+            self.call_async(self.controller.prev_track)
+            return
+
         print(f"[stub] action={action}")
 
     def open_system_popup(self):
@@ -1517,6 +1538,21 @@ class DashApp(App):
                     w.update(dt)
         except Exception:
             pass
+
+    def call_async(self, fn, on_done=None):
+        """
+        OS操作/playerctlは固まることがあるのでUIスレッドから切り離す。
+        on_done(result) はUIスレッドで呼ぶ。
+        """
+        def _run():
+            try:
+                res = fn()
+            except Exception as e:
+                res = e
+            if on_done:
+                Clock.schedule_once(lambda *_: on_done(res), 0)
+
+        threading.Thread(target=_run, daemon=True).start()
 
 if __name__ == "__main__":
     DashApp().run()
