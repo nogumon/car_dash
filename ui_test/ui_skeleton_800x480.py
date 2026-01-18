@@ -424,6 +424,7 @@ KV = """
                     size_hint_y: None
                     height: dp(28)
                     spacing: dp(8)
+                    padding: 0, dp(2), 0, 0   # 少し下げる。逆なら dp(-1) とかで調整
                     Label:
                         text: root.play_state_text
                         color: app.hex_to_rgba(app.theme["text_sub"])
@@ -1126,7 +1127,7 @@ class VEqualizer(Widget):
 
         with self.canvas:
             # 背景バー色
-            self._bg_color = Color(1, 1, 1, 0.10)
+            #self._bg_color = Color(1, 1, 1, 0.10)
             # 実バー色（あとで theme の accent で更新する）
             self._fg_color = Color(1, 1, 1, 0.90)
 
@@ -1142,12 +1143,6 @@ class VEqualizer(Widget):
             # vals初期化
             if len(self.vals) != n:
                 self.vals = [0.3] * n
-
-            # 背景バー（最大高）
-            for i in range(n):
-                x = start_x + i * (bar_w + gap)
-                rr = RoundedRectangle(pos=(x, self.y), size=(bar_w, self.height), radius=[dp(2)])
-                self._bg_rects.append(rr)
 
             # 実バー（高さは update() で変える）
             for i in range(n):
@@ -1182,12 +1177,15 @@ class VEqualizer(Widget):
 
     def update(self, dt):
         app = App.get_running_app()
+        n = int(self.bars) if hasattr(self, "bars") else 10
 
-        if not app or not app.is_playing:
-            # 再生停止中：ゆっくり0へ
-            if hasattr(self, "vals"):
-                self.vals = [v * 0.8 for v in self.vals]
-                self._apply_vals()
+        min_idle = 0.10   # 停止中の「ちょこっと」
+        if not app or not getattr(app, "is_playing", False):
+            if not hasattr(self, "vals") or len(self.vals) != n:
+                self.vals = [min_idle] * n
+            else:
+                self.vals = [max(min_idle, v * 0.85) for v in self.vals]
+            self._apply_vals()
             return
 
         n = int(self.bars)
