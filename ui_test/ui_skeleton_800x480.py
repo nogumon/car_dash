@@ -407,6 +407,7 @@ KV = """
                     text_size: self.size
 
                 Label:
+                    id: title_lbl
                     text: root.title_text
                     color: app.hex_to_rgba(app.theme["accent"])
                     font_size: "26sp"
@@ -1218,6 +1219,9 @@ class HomeScreen(Screen):
     play_state_text = StringProperty("Playing")
     location_text = StringProperty("埼玉県 草加市")
     temp_text = StringProperty("14℃")
+    _scroll_x = NumericProperty(0.0)
+    _scroll_active = BooleanProperty(False)
+
 
 class MusicScreen(Screen):
     time_text = StringProperty("12:34")
@@ -1323,6 +1327,8 @@ class DashApp(App):
         Clock.schedule_interval(self._demo_speed, 0.5)
 
         Clock.schedule_interval(self._tick_eq, 1/30)  # 30fps くらい
+
+        Clock.schedule_interval(self._tick_title_scroll, 1/30)  # 30fps
 
         sm = ScreenManager()
         sm.add_widget(HomeScreen())
@@ -1603,6 +1609,46 @@ class DashApp(App):
                 self._apply_now_playing(res)
 
         self.call_async(self.controller.get_metadata, on_done=_done)
+
+    def _tick_title_scroll(self, dt):
+        # Home画面のタイトルだけスクロール（まずはここだけ）
+        try:
+            home = self.root.get_screen("home")
+            lbl = home.ids.get("title_lbl")
+            if not lbl:
+                return
+
+            # ラベルの実表示幅と、文字の幅
+            lbl.texture_update()
+            text_w = lbl.texture_size[0]
+            box_w = lbl.width
+
+            # 収まってるなら止める
+            if text_w <= box_w + dp(2):
+                home._scroll_active = False
+                home._scroll_x = 0.0
+                lbl.x = lbl.parent.x + dp(0)
+                return
+
+            # スクロールする
+            if not home._scroll_active:
+                home._scroll_active = True
+                home._scroll_x = 0.0
+
+            speed = dp(40)  # 1秒あたり40pxくらい（好みで）
+            home._scroll_x += speed * dt
+
+            # ループ：末尾が完全に抜けたら先頭に戻す（チカチカしない方式）
+            loop_len = text_w - box_w + dp(30)  # 余白30
+            if home._scroll_x > loop_len:
+                home._scroll_x = 0.0
+
+            # Labelを左にずらす（clipは親で行われる）
+            base_x = lbl.parent.x
+            lbl.x = base_x - home._scroll_x
+
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     DashApp().run()
