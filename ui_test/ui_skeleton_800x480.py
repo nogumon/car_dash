@@ -164,6 +164,7 @@ UI = {
 KV = """
 
 #:import dp kivy.metrics.dp
+#:import StencilView kivy.uix.stencilview.StencilView
 
 <Label>:
     font_name: "JP"
@@ -406,15 +407,25 @@ KV = """
                     valign: "middle"
                     text_size: self.size
 
-                Label:
-                    id: title_lbl
-                    text: root.title_text
-                    color: app.hex_to_rgba(app.theme["accent"])
-                    font_size: "26sp"
-                    bold: True
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.size
+                StencilView:
+                    size_hint_y: None
+                    height: dp(36)
+
+                    BoxLayout:
+                        id: title_clip
+                        size_hint: 1, 1
+
+                        Label:
+                            id: title_lbl
+                            text: root.title_text
+                            color: app.hex_to_rgba(app.theme["accent"])
+                            font_size: "26sp"
+                            bold: True
+                            halign: "left"
+                            valign: "middle"
+                            text_size: None, None
+                            size_hint_x: None
+                            width: self.texture_size[0]
 
                 Label:
                     text: root.artist_text
