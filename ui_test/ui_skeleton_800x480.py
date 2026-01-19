@@ -413,12 +413,17 @@ KV = """
                     color: app.hex_to_rgba(app.theme["accent"])
                     font_size: "26sp"
                     bold: True
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.size
+
+                    # 1行固定＆省略
                     shorten: True
                     shorten_from: "right"
                     max_lines: 1
+
+                    # 左詰めを確実に
+                    halign: "left"
+                    valign: "middle"
+                    text_size: self.width, None
+
                     size_hint_y: None
                     height: dp(36)
 
