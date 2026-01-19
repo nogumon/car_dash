@@ -426,6 +426,8 @@ KV = """
                             text_size: None, None
                             size_hint_x: None
                             width: self.texture_size[0]
+                            size_hint_y: None
+                            height: dp(36)
 
                 Label:
                     text: root.artist_text
