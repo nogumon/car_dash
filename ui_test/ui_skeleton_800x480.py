@@ -408,6 +408,7 @@ KV = """
                     text_size: self.size
 
                 StencilView:
+                    size_hint_x: 1
                     size_hint_y: None
                     height: dp(36)
 
