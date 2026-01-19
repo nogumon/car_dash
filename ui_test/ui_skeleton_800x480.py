@@ -1328,6 +1328,8 @@ class DashApp(App):
         sm.add_widget(HomeScreen())
         sm.add_widget(MusicScreen())
         sm.add_widget(MapFullScreen())
+        # 起動直後に実状態と同期
+        Clock.schedule_once(lambda *_: self.sync_play_state(), 0.2)
         return sm
 
     def goto(self, name: str, direction: str = "left"):
@@ -1336,10 +1338,11 @@ class DashApp(App):
 
     def toggle_play(self):
         def _done(res):
-            # controllerがTrue/Falseを返したらそれに従う。Noneなら従来通りトグル。
+            # resがTrue/Falseなら実状態として採用
             if isinstance(res, bool):
                 self.is_playing = res
             else:
+                # 実状態が取れない時だけトグル（保険）
                 self.is_playing = not self.is_playing
 
             state = "Playing" if self.is_playing else "Paused"
@@ -1553,6 +1556,18 @@ class DashApp(App):
                 Clock.schedule_once(lambda *_: on_done(res), 0)
 
         threading.Thread(target=_run, daemon=True).start()
+
+    def sync_play_state(self):
+        def _done(res):
+            if isinstance(res, bool):
+                self.is_playing = res
+                state = "Playing" if self.is_playing else "Paused"
+                for name in ("home", "music", "map_full"):
+                    scr = self.root.get_screen(name)
+                    if hasattr(scr, "play_state_text"):
+                        scr.play_state_text = state
+
+        self.call_async(self.controller.get_status, on_done=_done)
 
 if __name__ == "__main__":
     DashApp().run()

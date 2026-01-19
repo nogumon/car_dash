@@ -3,36 +3,47 @@ import subprocess
 
 
 class PlayerctlController:
-    """
-    playerctl を使って実際の音楽プレイヤーを操作する Controller
-    （YouTube Music / Chromium / Spotify 等）
-    """
-
-    def _run(self, *args) -> bool:
+    def _run(self, *args):
         try:
-            subprocess.run(
+            cp = subprocess.run(
                 ["playerctl", *args],
                 check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
             )
-            return True
-        except subprocess.CalledProcessError:
-            return False
+            return True, (cp.stdout or "").strip()
+        except subprocess.CalledProcessError as e:
+            return False, (e.stderr or "").strip()
         except FileNotFoundError:
-            # playerctl が無い
+            return False, "playerctl not found"
+
+    def get_status(self):
+        # 戻り値: True/False/None（Noneは不明）
+        ok, out = self._run("status")
+        if not ok:
+            return None
+        s = out.lower()
+        if "playing" in s:
+            return True
+        if "paused" in s or "stopped" in s:
             return False
+        return None
 
     def play_pause(self):
         print("[ctrl] play_pause (real)")
-        ok = self._run("play-pause")
-        # 状態はUI側でトグルするので None を返す
-        return None if ok else False
+        ok, _ = self._run("play-pause")
+        # 叩いたあと実状態を読む（同期のキモ）
+        if not ok:
+            return None
+        return self.get_status()
 
     def next_track(self):
         print("[ctrl] next_track (real)")
-        return self._run("next")
+        ok, _ = self._run("next")
+        return ok
 
     def prev_track(self):
         print("[ctrl] prev_track (real)")
-        return self._run("previous")
+        ok, _ = self._run("previous")
+        return ok
