@@ -1330,6 +1330,12 @@ class DashApp(App):
         sm.add_widget(MapFullScreen())
         # 起動直後に実状態と同期
         Clock.schedule_once(lambda *_: self.sync_play_state(), 0.2)
+        # 起動直後1回同期
+        Clock.schedule_once(lambda *_: self.sync_now_playing(), 0.3)
+
+        # 以降は定期的に同期（重くない）
+        Clock.schedule_interval(lambda dt: self.sync_now_playing(), 1.0)
+
         return sm
 
     def goto(self, name: str, direction: str = "left"):
@@ -1568,6 +1574,35 @@ class DashApp(App):
                         scr.play_state_text = state
 
         self.call_async(self.controller.get_status, on_done=_done)
+
+    def _apply_now_playing(self, meta: dict):
+        # 空なら更新しない
+        if not meta:
+            return
+
+        title = meta.get("title") or ""
+        artist = meta.get("artist") or ""
+
+        # ここで表示用のfallback
+        if not title:
+            title = "（タイトル不明）"
+        if not artist:
+            artist = ""
+
+        # Homeの表示を更新
+        try:
+            home = self.root.get_screen("home")
+            home.title_text = title
+            home.artist_text = artist
+        except Exception:
+            pass
+
+    def sync_now_playing(self):
+        def _done(res):
+            if isinstance(res, dict):
+                self._apply_now_playing(res)
+
+        self.call_async(self.controller.get_metadata, on_done=_done)
 
 if __name__ == "__main__":
     DashApp().run()

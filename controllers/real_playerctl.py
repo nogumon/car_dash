@@ -47,3 +47,24 @@ class PlayerctlController:
         print("[ctrl] prev_track (real)")
         ok, _ = self._run("previous")
         return ok
+    
+    def get_metadata(self):
+        """
+        戻り値: {"title": str, "artist": str} / None
+        """
+        # title
+        ok_t, title = self._run("metadata", "--format", "{{title}}")
+        # artist（複数になることある）
+        ok_a, artist = self._run("metadata", "--format", "{{artist}}")
+
+        if not ok_t and not ok_a:
+            return None
+
+        title = (title or "").strip()
+        artist = (artist or "").strip()
+
+        # どっちも空なら未取得扱い
+        if not title and not artist:
+            return None
+
+        return {"title": title, "artist": artist}
