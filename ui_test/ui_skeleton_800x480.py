@@ -1341,7 +1341,7 @@ class DashApp(App):
 
         Clock.schedule_interval(self._tick_eq, 1/30)  # 30fps くらい
 
-        Clock.schedule_interval(self._tick_title_scroll, 1/30)  # 30fps
+        #Clock.schedule_interval(self._tick_title_scroll, 1/30)  # 30fps
 
         sm = ScreenManager()
         sm.add_widget(HomeScreen())
