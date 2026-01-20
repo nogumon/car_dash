@@ -413,16 +413,13 @@ KV = """
                     color: app.hex_to_rgba(app.theme["accent"])
                     font_size: "26sp"
                     bold: True
-
-                    # 1行固定＆省略
-                    shorten: True
-                    shorten_from: "right"
-                    max_lines: 1
-
-                    # 左詰めを確実に
                     halign: "left"
                     valign: "middle"
                     text_size: self.width, None
+
+                    shorten: True
+                    shorten_from: "right"
+                    max_lines: 1
 
                     size_hint_y: None
                     height: dp(36)
@@ -1683,16 +1680,24 @@ class DashApp(App):
             if not src:
                 return
 
-            # ラベル幅と文字幅を使って「長いか」を判定
-            lbl = home.ids.get("title_lbl") if hasattr(home, "ids") else None
-            if not lbl:
-                # idが無いなら長さ基準でざっくり
-                long_enough = len(src) >= 18
+            # title_lblが取れない場合もあるので安全に
+            lbl = None
+            try:
+                lbl = home.ids.get("title_lbl")
+            except Exception:
+                lbl = None
+
+            long_enough = False
+            if lbl:
+                try:
+                    lbl.texture_update()
+                    text_w = lbl.texture_size[0]
+                    box_w = lbl.width
+                    long_enough = text_w > box_w + dp(4)
+                except Exception:
+                    long_enough = len(src) >= 18
             else:
-                lbl.texture_update()
-                text_w = lbl.texture_size[0]
-                box_w = lbl.width
-                long_enough = text_w > box_w + dp(4)
+                long_enough = len(src) >= 18
 
             if not long_enough:
                 home.title_disp = src
@@ -1701,15 +1706,12 @@ class DashApp(App):
             pad = getattr(self, "_scroll_pad", "   •   ")
             s = src + pad
 
-            # 位置更新
             pos = getattr(self, "_scroll_pos", 0)
             pos = (pos + 1) % len(s)
             self._scroll_pos = pos
 
-            # ループ表示（見た目優先で 40 文字くらい切り出し）
-            window = 40
-            disp = (s[pos:] + s)[:window]
-            home.title_disp = disp
+            window = 28  # 800x480の26spだとこの辺が自然
+            home.title_disp = (s[pos:] + s)[:window]
 
         except Exception:
             pass
