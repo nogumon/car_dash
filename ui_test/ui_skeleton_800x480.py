@@ -409,7 +409,7 @@ KV = """
 
                 Label:
                     id: title_lbl
-                    text: root.title_text
+                    text: root.title_disp
                     color: app.hex_to_rgba(app.theme["accent"])
                     font_size: "26sp"
                     bold: True
@@ -1232,6 +1232,7 @@ class HomeScreen(Screen):
     temp_text = StringProperty("14℃")
     _scroll_x = NumericProperty(0.0)
     _scroll_active = BooleanProperty(False)
+    title_disp = StringProperty("")
 
 
 class MusicScreen(Screen):
@@ -1270,6 +1271,10 @@ class DashApp(App):
         self._orig_stderr = sys.stderr
         sys.stdout = _TeeStream(self._orig_stdout, self._log_buf)
         sys.stderr = _TeeStream(self._orig_stderr, self._log_buf, prefix="[ERR] ")
+
+        self._scroll_src = ""      # 元のタイトル
+        self._scroll_pos = 0       # 位置
+        self._scroll_pad = "   •   "  # 区切り（好み）
 
     def set_theme(self, key: str):
         # ★安全：未知キーは無視
@@ -1352,6 +1357,8 @@ class DashApp(App):
 
         # 以降は定期的に同期（重くない）
         Clock.schedule_interval(lambda dt: self.sync_now_playing(), 1.0)
+
+        Clock.schedule_interval(self._tick_title_marquee, 0.12)  # 約8fps
 
         return sm
 
@@ -1614,6 +1621,14 @@ class DashApp(App):
         except Exception:
             pass
 
+        # 表示用（スクロール）はここで初期化
+        try:
+            self._scroll_src = title
+            self._scroll_pos = 0
+            home.title_disp = title  # まずはそのまま表示
+        except Exception:
+            pass
+
     def sync_now_playing(self):
         def _done(res):
             if isinstance(res, dict):
@@ -1657,6 +1672,44 @@ class DashApp(App):
             # Labelを左にずらす（clipは親で行われる）
             base_x = lbl.parent.x
             lbl.x = base_x - home._scroll_x
+
+        except Exception:
+            pass
+    
+    def _tick_title_marquee(self, dt):
+        try:
+            home = self.root.get_screen("home")
+            src = getattr(self, "_scroll_src", "") or ""
+            if not src:
+                return
+
+            # ラベル幅と文字幅を使って「長いか」を判定
+            lbl = home.ids.get("title_lbl") if hasattr(home, "ids") else None
+            if not lbl:
+                # idが無いなら長さ基準でざっくり
+                long_enough = len(src) >= 18
+            else:
+                lbl.texture_update()
+                text_w = lbl.texture_size[0]
+                box_w = lbl.width
+                long_enough = text_w > box_w + dp(4)
+
+            if not long_enough:
+                home.title_disp = src
+                return
+
+            pad = getattr(self, "_scroll_pad", "   •   ")
+            s = src + pad
+
+            # 位置更新
+            pos = getattr(self, "_scroll_pos", 0)
+            pos = (pos + 1) % len(s)
+            self._scroll_pos = pos
+
+            # ループ表示（見た目優先で 40 文字くらい切り出し）
+            window = 40
+            disp = (s[pos:] + s)[:window]
+            home.title_disp = disp
 
         except Exception:
             pass
