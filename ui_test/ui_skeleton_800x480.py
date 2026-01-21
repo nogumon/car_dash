@@ -11,7 +11,7 @@ from kivy.core.text import LabelBase
 
 from kivy.app import App
 from kivy.lang import Builder
-from kivy.properties import StringProperty
+from kivy.properties import StringProperty, NumericProperty, BooleanProperty
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.metrics import dp
 from kivy.factory import Factory
@@ -407,22 +407,37 @@ KV = """
                     valign: "middle"
                     text_size: self.size
 
-                Label:
-                    id: title_lbl
-                    text: root.title_disp
-                    color: app.hex_to_rgba(app.theme["accent"])
-                    font_size: "26sp"
-                    bold: True
-                    halign: "left"
-                    valign: "middle"
-                    text_size: self.width, None
-
-                    shorten: True
-                    shorten_from: "right"
-                    max_lines: 1
-
+                StencilView:
+                    id: title_clip
                     size_hint_y: None
                     height: dp(36)
+
+                    # ちょい下に落とす（ここを dp(2)〜dp(6) で好みに調整）
+                    BoxLayout:
+                        size: self.parent.size
+                        pos: self.parent.pos
+                        padding: [0, dp(4), 0, 0]   # ←「位置はもう少し下がいい」用
+                        orientation: "vertical"
+
+                        FloatLayout:
+                            # クリップ内で横に動かすタイトル
+                            Label:
+                                id: title_lbl
+                                text: root.title_disp
+                                color: app.hex_to_rgba(app.theme["accent"])
+                                font_size: "26sp"
+                                bold: True
+
+                                size_hint: None, None
+                                height: dp(36)
+                                width: self.texture_size[0]
+                                text_size: None, None
+
+                                # ここが肝：x を root.title_x で動かす
+                                x: title_clip.x + root.title_x
+                                y: title_clip.y
+                                halign: "left"
+                                valign: "middle"
 
                 Label:
                     text: root.artist_text
@@ -1230,6 +1245,8 @@ class HomeScreen(Screen):
     _scroll_x = NumericProperty(0.0)
     _scroll_active = BooleanProperty(False)
     title_disp = StringProperty("")
+    title_x = NumericProperty(0.0)
+    scroll_active = BooleanProperty(False)
 
 
 class MusicScreen(Screen):
@@ -1272,6 +1289,10 @@ class DashApp(App):
         self._scroll_src = ""      # 元のタイトル
         self._scroll_pos = 0       # 位置
         self._scroll_pad = "   •   "  # 区切り（好み）
+
+        self._marquee_src = ""
+        self._marquee_gap = "     "  # 余白。増やすと間が空く
+        self._marquee_speed = 120.0  # px/sec（速いなら 60〜90 へ）
 
     def set_theme(self, key: str):
         # ★安全：未知キーは無視
@@ -1356,6 +1377,8 @@ class DashApp(App):
         Clock.schedule_interval(lambda dt: self.sync_now_playing(), 1.0)
 
         Clock.schedule_interval(self._tick_title_marquee, 0.12)  # 約8fps
+
+        Clock.schedule_interval(self._tick_title_marquee, 1/30)  # 30fps
 
         return sm
 
@@ -1618,6 +1641,16 @@ class DashApp(App):
         except Exception:
             pass
 
+        # marquee 初期化
+        try:
+            home = self.root.get_screen("home")
+            self._marquee_src = title or ""
+            home.title_x = 0.0
+            home.title_disp = self._marquee_src  # まずは通常表示
+            home.scroll_active = False
+        except Exception:
+            pass
+
         # 表示用（スクロール）はここで初期化
         try:
             self._scroll_src = title
@@ -1715,6 +1748,55 @@ class DashApp(App):
 
         except Exception:
             pass
+
+    def _tick_title_marquee(self, dt):
+        try:
+            home = self.root.get_screen("home")
+            lbl = home.ids.title_lbl
+            clip = home.ids.title_clip
+        except Exception:
+            return
+
+        src = self._marquee_src or ""
+        if not src:
+            home.title_disp = ""
+            home.title_x = 0.0
+            home.scroll_active = False
+            return
+
+        # 1回 texture 更新させるために入れておく（※title_dispが変わった時にも効く）
+        if home.title_disp == "":
+            home.title_disp = src
+            home.title_x = 0.0
+
+        # いまの文字幅とクリップ幅
+        text_w = lbl.texture_size[0]
+        clip_w = clip.width
+
+        # 収まるならスクロールしない
+        if text_w <= clip_w:
+            home.title_disp = src
+            home.title_x = 0.0
+            home.scroll_active = False
+            return
+
+        # 収まらないならループ用に「src + gap + src」
+        loop_text = src + self._marquee_gap + src
+        if home.title_disp != loop_text:
+            home.title_disp = loop_text
+            home.title_x = 0.0
+            home.scroll_active = True
+            return
+
+        # 動かす（左へ）
+        home.scroll_active = True
+        home.title_x -= self._marquee_speed * dt
+
+        # ループ戻し：最初の src が全部流れたら先頭へ
+        # だいたい src の幅ぶん左へ行ったらリセット、でOK（ガタつきにくい）
+        # ※texture_sizeは loop_text 全体になるので、半分を目安に戻す
+        if home.title_x <= -(lbl.texture_size[0] / 2):
+            home.title_x = 0.0
 
 if __name__ == "__main__":
     DashApp().run()
